@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Header } from './components/Header.tsx';
-import { SearchForm } from './components/SearchForm.tsx';
+import { SearchForm, type SearchMode } from './components/SearchForm.tsx';
 import { ResultPanel } from './components/ResultPanel.tsx';
+import { BatchResultsPanel } from './components/BatchResultsPanel.tsx';
 import { HistorySection } from './components/HistorySection.tsx';
 import { WorkflowSection } from './components/WorkflowSection.tsx';
-import type { HistoryItem, LookupResponse } from './types.ts';
+import type { BatchItemResult, HistoryItem, LookupResponse } from './types.ts';
 
 const HISTORY_STORAGE_KEY = 'academic_doi_scihub_history_v1';
-const MAX_HISTORY_ITEMS = 10;
+const THEME_STORAGE_KEY = 'academic_doi_theme_v1';
+const MAX_HISTORY_ITEMS = 25;
 
 function loadSavedHistory(): HistoryItem[] {
   try {
@@ -20,12 +22,38 @@ function loadSavedHistory(): HistoryItem[] {
   }
 }
 
+function loadSavedTheme(): boolean {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY) === 'dark';
+  } catch {
+    return false;
+  }
+}
+
 export default function App() {
+  const [mode, setMode] = useState<SearchMode>('single');
+  const [isDark, setIsDark] = useState<boolean>(() => loadSavedTheme());
   const [input, setInput] = useState('');
+  const [batchInput, setBatchInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<LookupResponse | null>(null);
+  const [batchResults, setBatchResults] = useState<BatchItemResult[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>(() => loadSavedHistory());
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDark) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, isDark ? 'dark' : 'light');
+    } catch {
+      // Ignore storage error
+    }
+  }, [isDark]);
 
   useEffect(() => {
     try {
@@ -35,10 +63,33 @@ export default function App() {
     }
   }, [history]);
 
-  const handleLookup = async (overrideInput?: string) => {
+  const upsertHistory = (query: string, data: LookupResponse) => {
+    if (!data.success || !data.doi || !data.sciHub) return;
+    setHistory((prev) => {
+      const existing = prev.find((item) => item.doi === data.doi);
+      const nextItem: HistoryItem = {
+        id: `${data.doi}-${Date.now()}`,
+        input: query,
+        doi: data.doi!,
+        title: data.metadata.title,
+        journal: data.metadata.journal,
+        year: data.metadata.year,
+        available: data.sciHub!.available,
+        pdfUrl: data.sciHub!.pdfUrl,
+        sciHubBoxUrl: data.sciHub!.sciHubBoxUrl,
+        checkedAt: new Date().toISOString(),
+        bookmarked: existing?.bookmarked ?? false,
+      };
+      const filtered = prev.filter((item) => item.doi !== data.doi);
+      return [nextItem, ...filtered].slice(0, MAX_HISTORY_ITEMS);
+    });
+  };
+
+  const handleLookupSingle = async (overrideInput?: string) => {
     const query = (overrideInput ?? input).trim();
     if (!query || isLoading) return;
 
+    setMode('single');
     setIsLoading(true);
     setResult(null);
 
@@ -51,26 +102,7 @@ export default function App() {
 
       const data: LookupResponse = await response.json();
       setResult(data);
-
-      if (data.success && data.doi && data.sciHub) {
-        const nextItem: HistoryItem = {
-          id: `${data.doi}-${Date.now()}`,
-          input: query,
-          doi: data.doi,
-          title: data.metadata.title,
-          journal: data.metadata.journal,
-          year: data.metadata.year,
-          available: data.sciHub.available,
-          pdfUrl: data.sciHub.pdfUrl,
-          sciHubBoxUrl: data.sciHub.sciHubBoxUrl,
-          checkedAt: new Date().toISOString(),
-        };
-
-        setHistory((prev) => {
-          const filtered = prev.filter((item) => item.doi !== data.doi);
-          return [nextItem, ...filtered].slice(0, MAX_HISTORY_ITEMS);
-        });
-      }
+      upsertHistory(query, data);
     } catch {
       setResult({
         success: false,
@@ -95,7 +127,47 @@ export default function App() {
     }
   };
 
+  const handleLookupBatch = async () => {
+    const lines = batchInput
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .slice(0, 10);
+
+    if (lines.length === 0 || isLoading) return;
+
+    setIsLoading(true);
+    setBatchResults(lines.map((line) => ({ input: line, status: 'pending' })));
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      setBatchResults((prev) =>
+        prev.map((item, idx) => (idx === i ? { ...item, status: 'loading' } : item))
+      );
+
+      try {
+        const res = await fetch('/api/lookup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input: line }),
+        });
+        const data: LookupResponse = await res.json();
+        upsertHistory(line, data);
+        setBatchResults((prev) =>
+          prev.map((item, idx) => (idx === i ? { ...item, status: 'done', data } : item))
+        );
+      } catch {
+        setBatchResults((prev) =>
+          prev.map((item, idx) => (idx === i ? { ...item, status: 'error' } : item))
+        );
+      }
+    }
+
+    setIsLoading(false);
+  };
+
   const handleNewSearch = () => {
+    setMode('single');
     setInput('');
     setResult(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -105,45 +177,74 @@ export default function App() {
   const handleReSearch = (savedInput: string) => {
     setInput(savedInput);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    handleLookup(savedInput);
+    handleLookupSingle(savedInput);
+  };
+
+  const handleToggleBookmark = (doi: string) => {
+    setHistory((prev) =>
+      prev.map((item) =>
+        item.doi === doi ? { ...item, bookmarked: !item.bookmarked } : item
+      )
+    );
   };
 
   const handleClearHistory = () => {
     setHistory([]);
   };
 
+  const currentIsBookmarked = Boolean(
+    result?.doi && history.some((item) => item.doi === result.doi && item.bookmarked)
+  );
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#FBF9F5] text-[#1C1917]">
+    <div className="min-h-screen flex flex-col bg-[#FBF9F5] dark:bg-[#111317] text-[#1C1917] dark:text-[#F5F2EB] transition-colors">
       <Header onNewSearch={handleNewSearch} />
 
       <main className="flex-1 px-4 sm:px-6">
         <SearchForm
+          mode={mode}
+          onModeChange={setMode}
+          isDark={isDark}
+          onToggleTheme={() => setIsDark((prev) => !prev)}
           input={input}
           onInputChange={setInput}
-          onSubmit={handleLookup}
+          batchInput={batchInput}
+          onBatchInputChange={setBatchInput}
+          onSubmitSingle={handleLookupSingle}
+          onSubmitBatch={handleLookupBatch}
           isLoading={isLoading}
           inputRef={inputRef}
         />
 
-        <ResultPanel isLoading={isLoading} result={result} />
+        {mode === 'single' ? (
+          <ResultPanel
+            isLoading={isLoading}
+            result={result}
+            isBookmarked={currentIsBookmarked}
+            onToggleBookmark={handleToggleBookmark}
+          />
+        ) : (
+          <BatchResultsPanel items={batchResults} isRunning={isLoading} />
+        )}
 
         <HistorySection
           items={history}
           onReSearch={handleReSearch}
+          onToggleBookmark={handleToggleBookmark}
           onClearHistory={handleClearHistory}
         />
 
         <WorkflowSection />
       </main>
 
-      <footer className="border-t border-[#E4DFD5] bg-[#FBF9F5] py-6 px-6">
-        <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#57534E]">
+      <footer className="border-t border-[#E4DFD5] dark:border-[#272B33] bg-[#FBF9F5] dark:bg-[#111317] py-6 px-6 transition-colors">
+        <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#57534E] dark:text-[#A8A29E]">
           <span>المستكشف الأكاديمي · أداة استخراج DOI والبحث عبر sci-hub.box</span>
           <a
             href="https://sci-hub.box/"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-[#1C1917] hover:underline underline-offset-4 transition-colors"
+            className="hover:text-[#1C1917] dark:hover:text-[#F5F2EB] hover:underline underline-offset-4 transition-colors"
           >
             الانتقال إلى sci-hub.box
           </a>

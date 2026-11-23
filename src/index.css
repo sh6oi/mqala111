@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: "IBM Plex Sans Arabic", system-ui, -apple-system, sans-serif;
@@ -15,6 +16,11 @@
     font-family: var(--font-sans);
     background-color: #FBF9F5;
     color: #1C1917;
+  }
+
+  html.dark body {
+    background-color: #111317;
+    color: #F5F2EB;
   }
 
   h1, h2, .font-editorial {

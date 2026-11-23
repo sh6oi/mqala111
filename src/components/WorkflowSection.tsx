@@ -10,22 +10,22 @@ export function WorkflowSection() {
       index: '02.',
       title: 'البحث في موقع sci-hub.box',
       description:
-        'يتم الاستعلام مباشرة عن معرّف DOI المستخرج في أرشيف sci-hub.box للتحقق من وجود نسخة رقمية مفهرسة للمقالة مع استخلاص بصمة الملف وحجمه.',
+        'يتم الاستعلام عن معرّف DOI المستخرج عبر sci-hub.box والتحقق من وجود نسخة رقمية مفهرسة للمقالة مع استخلاص بصمة الملف وحجمه ومعلومات الاستشهاد.',
     },
     {
       index: '03.',
-      title: 'إتاحة زر تحميل ملف PDF',
+      title: 'معاينة وتحميل PDF وتصدير المراجع',
       description:
-        'عند توفر المقالة يظهر زر تحميل ملف PDF فوراً لحفظ الورقة البحثية باسم معرّف DOI، مع توفير رابط مباشر لصفحة المقالة على sci-hub.box.',
+        'عند توفر المقالة يظهر زر تحميل ملف PDF وزر المعاينة الفورية، إلى جانب توليد الاقتباس الأكاديمي بصيغ APA وIEEE وMLA وBibTeX.',
     },
   ];
 
   return (
-    <section id="workflow" className="mx-auto max-w-4xl py-10 border-t border-[#E4DFD5]">
+    <section id="workflow" className="mx-auto max-w-5xl py-10 border-t border-[#E4DFD5] dark:border-[#272B33]">
       <div className="mb-6">
-        <h2 className="font-serif text-2xl font-bold text-[#1C1917]">آلية عمل الأداة</h2>
-        <p className="text-sm text-[#57534E] mt-1">
-          ثلاث خطوات متسلسلة من رابط المقالة حتى تحميل ملف PDF.
+        <h2 className="font-serif text-2xl font-bold text-[#1C1917] dark:text-[#F5F2EB]">آلية عمل الأداة</h2>
+        <p className="text-sm text-[#57534E] dark:text-[#A8A29E] mt-1">
+          ثلاث خطوات دقيقة من رابط المقالة حتى تحميل ملف PDF وتنسيق المراجع.
         </p>
       </div>
 
@@ -33,13 +33,13 @@ export function WorkflowSection() {
         {steps.map((step) => (
           <div
             key={step.index}
-            className="rounded-xl border border-[#E4DFD5] bg-white p-5 flex flex-col"
+            className="rounded-xl border border-[#E4DFD5] dark:border-[#272B33] bg-white dark:bg-[#181B21] p-5 flex flex-col transition-colors"
           >
-            <span className="font-mono text-sm font-semibold text-[#1E3A8A] tabular-nums mb-2">
+            <span className="font-mono text-sm font-semibold text-[#1E3A8A] dark:text-[#60A5FA] tabular-nums mb-2">
               {step.index}
             </span>
-            <h3 className="text-base font-bold text-[#1C1917] mb-2">{step.title}</h3>
-            <p className="text-sm text-[#57534E] leading-relaxed">{step.description}</p>
+            <h3 className="text-base font-bold text-[#1C1917] dark:text-[#F5F2EB] mb-2">{step.title}</h3>
+            <p className="text-sm text-[#57534E] dark:text-[#A8A29E] leading-relaxed">{step.description}</p>
           </div>
         ))}
       </div>

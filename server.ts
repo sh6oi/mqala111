@@ -229,6 +229,10 @@ async function fetchMetadataFromCrossrefAndOpenAlex(doi: string): Promise<{
     authors: [],
     journal: null,
     year: null,
+    volume: null,
+    issue: null,
+    pages: null,
+    citedByCount: null,
     publisher: null,
     abstract: null,
     citation: null,
@@ -269,6 +273,18 @@ async function fetchMetadataFromCrossrefAndOpenAlex(doi: string): Promise<{
       m['published-online']?.['date-parts']?.[0];
     if (Array.isArray(yearParts) && yearParts[0]) {
       empty.year = String(yearParts[0]);
+    }
+    if (m.volume) {
+      empty.volume = String(m.volume);
+    }
+    if (m.issue) {
+      empty.issue = String(m.issue);
+    }
+    if (m.page) {
+      empty.pages = String(m.page);
+    }
+    if (typeof m['is-referenced-by-count'] === 'number') {
+      empty.citedByCount = m['is-referenced-by-count'];
     }
     if (m.publisher) {
       empty.publisher = String(m.publisher);
@@ -964,6 +980,10 @@ async function createServer() {
             : resolved.pageMetadata.authors ?? [],
         journal: bibResult.metadata.journal ?? resolved.pageMetadata.journal ?? null,
         year: bibResult.metadata.year ?? resolved.pageMetadata.year ?? null,
+        volume: bibResult.metadata.volume ?? null,
+        issue: bibResult.metadata.issue ?? null,
+        pages: bibResult.metadata.pages ?? null,
+        citedByCount: bibResult.metadata.citedByCount ?? null,
         publisher: bibResult.metadata.publisher ?? null,
         abstract: bibResult.metadata.abstract ?? sciHubResult.extraMeta.abstract ?? null,
         citation: bibResult.metadata.citation ?? sciHubResult.extraMeta.citation ?? null,
@@ -1079,8 +1099,12 @@ async function createServer() {
         return;
       }
 
+      const isInline = req.query.inline === '1';
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+      res.setHeader(
+        'Content-Disposition',
+        `${isInline ? 'inline' : 'attachment'}; filename="${safeFilename}"`
+      );
       res.setHeader('Content-Length', String(buffer.length));
       res.send(buffer);
     } catch {

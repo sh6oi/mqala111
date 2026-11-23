@@ -3,6 +3,10 @@ export interface ArticleMetadata {
   authors: string[];
   journal: string | null;
   year: string | null;
+  volume?: string | null;
+  issue?: string | null;
+  pages?: string | null;
+  citedByCount?: number | null;
   publisher: string | null;
   abstract: string | null;
   citation: string | null;
@@ -43,4 +47,11 @@ export interface HistoryItem {
   pdfUrl: string | null;
   sciHubBoxUrl: string;
   checkedAt: string;
+  bookmarked?: boolean;
+}
+
+export interface BatchItemResult {
+  input: string;
+  status: 'pending' | 'loading' | 'done' | 'error';
+  data?: LookupResponse;
 }
