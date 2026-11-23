@@ -1,0 +1,6 @@
+{
+  "name": "مستكشف المقالات العلمية | DOI & Sci-Hub PDF",
+  "description": "أداة أكاديمية لاستخراج معرّف DOI من روابط المقالات العلمية والبحث عن ملفات PDF المتاحة عبر sci-hub.box وتحميلها مباشرة.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
