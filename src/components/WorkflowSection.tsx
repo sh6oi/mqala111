@@ -21,11 +21,13 @@ export function WorkflowSection() {
   ];
 
   return (
-    <section id="workflow" className="mx-auto max-w-5xl py-10 border-t border-[#E4DFD5] dark:border-[#272B33]">
-      <div className="mb-6">
-        <h2 className="font-serif text-2xl font-bold text-[#1C1917] dark:text-[#F5F2EB]">آلية عمل الأداة</h2>
-        <p className="text-sm text-[#57534E] dark:text-[#A8A29E] mt-1">
-          ثلاث خطوات دقيقة من رابط المقالة حتى تحميل ملف PDF وتنسيق المراجع.
+    <section id="workflow" className="mx-auto max-w-6xl px-4 sm:px-6 py-12 border-t border-[#E2E8F0] dark:border-[#1F2737]">
+      <div className="mb-7">
+        <h2 className="font-display text-2xl font-bold text-[#0F172A] dark:text-[#F8FAFC]">
+          آلية عمل الأداة
+        </h2>
+        <p className="text-sm text-[#475569] dark:text-[#94A3B8] mt-1">
+          ثلاث خطوات متكاملة من رابط المقالة حتى تحميل ملف PDF وتنسيق المراجع.
         </p>
       </div>
 
@@ -33,13 +35,17 @@ export function WorkflowSection() {
         {steps.map((step) => (
           <div
             key={step.index}
-            className="rounded-xl border border-[#E4DFD5] dark:border-[#272B33] bg-white dark:bg-[#181B21] p-5 flex flex-col transition-colors"
+            className="rounded-2xl border border-[#E2E8F0] dark:border-[#1F2737] bg-white dark:bg-[#11151E] p-6 flex flex-col hover:border-[#CBD5E1] dark:hover:border-[#334155] transition-colors"
           >
-            <span className="font-mono text-sm font-semibold text-[#1E3A8A] dark:text-[#60A5FA] tabular-nums mb-2">
+            <span className="font-mono text-sm font-semibold text-[#2563EB] dark:text-[#60A5FA] tabular-nums mb-3">
               {step.index}
             </span>
-            <h3 className="text-base font-bold text-[#1C1917] dark:text-[#F5F2EB] mb-2">{step.title}</h3>
-            <p className="text-sm text-[#57534E] dark:text-[#A8A29E] leading-relaxed">{step.description}</p>
+            <h3 className="text-base font-bold text-[#0F172A] dark:text-[#F8FAFC] mb-2">
+              {step.title}
+            </h3>
+            <p className="text-sm text-[#475569] dark:text-[#94A3B8] leading-relaxed">
+              {step.description}
+            </p>
           </div>
         ))}
       </div>

@@ -2,9 +2,9 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "IBM Plex Sans Arabic", system-ui, -apple-system, sans-serif;
-  --font-serif: "Amiri", Georgia, serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "IBM Plex Sans Arabic", "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-display: "Plus Jakarta Sans", "IBM Plex Sans Arabic", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
 @layer base {
@@ -14,18 +14,29 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: #FBF9F5;
-    color: #1C1917;
+    background-color: #F8FAFC;
+    color: #0F172A;
   }
 
   html.dark body {
-    background-color: #111317;
-    color: #F5F2EB;
+    background-color: #090B10;
+    color: #F8FAFC;
   }
 
-  h1, h2, .font-editorial {
+  h1, h2, .font-display {
+    font-family: var(--font-display);
     text-wrap: balance;
   }
+}
+
+.bg-architectural-grid {
+  background-image: radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+html.dark .bg-architectural-grid {
+  background-image: radial-gradient(rgba(148, 163, 184, 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 @media (prefers-reduced-motion: reduce) {

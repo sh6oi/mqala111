@@ -59,7 +59,6 @@ export function ResultPanel({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  // Reset preview & notice when result changes
   useEffect(() => {
     setDownloadNotice(null);
     setShowFullAbstract(false);
@@ -110,7 +109,7 @@ export function ResultPanel({
         const errData = await response.json().catch(() => null);
         setDownloadNotice(
           errData?.error ??
-            'تعذّر التحميل عبر الوسيط الآلي نظراً لحماية الخادم المصدر. استخدم زر "فتح في sci-hub.box" أدناه.'
+            'تعذّر التحميل عبر الوسيط الآلي نظراً لحماية الخادم المصدر. استخدم زر "فتح في sci-hub.box".'
         );
       }
     } catch {
@@ -168,24 +167,24 @@ export function ResultPanel({
 
   if (isLoading) {
     return (
-      <section aria-live="polite" className="mx-auto max-w-5xl pb-10">
-        <div className="rounded-xl border border-[#E4DFD5] dark:border-[#272B33] bg-white dark:bg-[#181B21] p-6 sm:p-8">
+      <section aria-live="polite" className="mx-auto max-w-6xl px-4 sm:px-6 pt-8 pb-4">
+        <div className="rounded-2xl border border-[#E2E8F0] dark:border-[#1F2737] bg-white dark:bg-[#11151E] p-6 sm:p-8 shadow-sm shadow-slate-900/[0.03]">
           <div className="flex items-center gap-3 mb-5">
-            <Loader2 className="h-5 w-5 animate-spin text-[#1E3A8A] dark:text-[#60A5FA]" />
-            <h2 className="text-base font-semibold text-[#1C1917] dark:text-[#F5F2EB]">
+            <Loader2 className="h-5 w-5 animate-spin text-[#2563EB] dark:text-[#60A5FA]" />
+            <h2 className="text-base font-bold text-[#0F172A] dark:text-[#F8FAFC]">
               جارٍ فحص الرابط واستخراج البيانات...
             </h2>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2 border-t border-[#F0ECE3] dark:border-[#272B33] pt-5 text-sm text-[#57534E] dark:text-[#A8A29E]">
+          <div className="grid gap-3 sm:grid-cols-2 border-t border-[#F1F5F9] dark:border-[#1F2737] pt-5 text-sm text-[#475569] dark:text-[#94A3B8]">
             <div className="flex items-center gap-2.5">
-              <span className="font-mono text-xs font-semibold text-[#1E3A8A] dark:text-[#60A5FA] tabular-nums">
+              <span className="font-mono text-xs font-semibold text-[#2563EB] dark:text-[#60A5FA] tabular-nums">
                 01
               </span>
               <span>تحليل صفحة المقالة واستخراج معرّف DOI</span>
             </div>
             <div className="flex items-center gap-2.5">
-              <span className="font-mono text-xs font-semibold text-[#1E3A8A] dark:text-[#60A5FA] tabular-nums">
+              <span className="font-mono text-xs font-semibold text-[#2563EB] dark:text-[#60A5FA] tabular-nums">
                 02
               </span>
               <span>البحث عن المقالة في sci-hub.box والتحقق من PDF</span>
@@ -200,27 +199,27 @@ export function ResultPanel({
 
   if (!result.doi) {
     return (
-      <section aria-live="polite" className="mx-auto max-w-5xl pb-10">
+      <section aria-live="polite" className="mx-auto max-w-6xl px-4 sm:px-6 pt-8 pb-4">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.18 }}
-          className="rounded-xl border border-[#E4DFD5] dark:border-[#272B33] bg-white dark:bg-[#181B21] p-6 sm:p-8"
+          className="rounded-2xl border border-[#E2E8F0] dark:border-[#1F2737] bg-white dark:bg-[#11151E] p-6 sm:p-8 shadow-sm shadow-slate-900/[0.03]"
         >
           <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-[#9A3412] dark:text-[#FB923C] shrink-0 mt-0.5" />
+            <AlertCircle className="h-5 w-5 text-[#C2410C] dark:text-[#FB923C] shrink-0 mt-0.5" />
             <div>
-              <h2 className="text-base font-semibold text-[#1C1917] dark:text-[#F5F2EB]">
+              <h2 className="text-base font-bold text-[#0F172A] dark:text-[#F8FAFC]">
                 لم يتم العثور على معرّف DOI في هذا الرابط
               </h2>
-              <p className="mt-1.5 text-sm text-[#57534E] dark:text-[#A8A29E] leading-relaxed">
+              <p className="mt-1.5 text-sm text-[#475569] dark:text-[#94A3B8] leading-relaxed">
                 {result.error ??
                   'تعذّر استخراج معرّف DOI من الرابط المدخل. حاول نسخ معرّف DOI (مثل 10.1038/nature12373) ولصقه مباشرة في خانة البحث.'}
               </p>
               {result.metadata.title && (
-                <p className="mt-3 text-xs text-[#57534E] dark:text-[#A8A29E]">
+                <p className="mt-3 text-xs text-[#64748B] dark:text-[#94A3B8]">
                   العنوان المستخرج من الصفحة:{' '}
-                  <span className="text-[#1C1917] dark:text-[#F5F2EB] font-medium">
+                  <span className="text-[#0F172A] dark:text-[#F8FAFC] font-medium">
                     {result.metadata.title}
                   </span>
                 </p>
@@ -254,106 +253,62 @@ export function ResultPanel({
     .join(' · ');
 
   return (
-    <section aria-live="polite" className="mx-auto max-w-5xl pb-10">
+    <section aria-live="polite" className="mx-auto max-w-6xl px-4 sm:px-6 pt-8 pb-4">
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18 }}
-        className="rounded-xl border border-[#E4DFD5] dark:border-[#272B33] bg-white dark:bg-[#181B21] overflow-hidden"
+        className="rounded-2xl border border-[#E2E8F0] dark:border-[#1F2737] bg-white dark:bg-[#11151E] overflow-hidden shadow-sm shadow-slate-900/[0.03]"
       >
-        {/* Availability Status Bar */}
+        {/* Top Availability Banner */}
         <div
-          className={`flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-6 py-5 border-b border-[#E4DFD5] dark:border-[#272B33] ${
+          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 border-b border-[#E2E8F0] dark:border-[#1F2737] ${
             available
-              ? 'bg-[#F0FDF4]/70 dark:bg-[#13251B]/60'
-              : 'bg-[#FAF7F2] dark:bg-[#15181E]'
+              ? 'bg-[#ECFDF5]/80 dark:bg-[#0B2219]/70'
+              : 'bg-[#F8FAFC] dark:bg-[#0F131C]'
           }`}
         >
           <div className="flex items-start gap-3">
             {available ? (
-              <CheckCircle2 className="h-5 w-5 text-[#15803D] dark:text-[#4ADE80] shrink-0 mt-0.5" />
+              <CheckCircle2 className="h-5 w-5 text-[#059669] dark:text-[#34D399] shrink-0 mt-0.5" />
             ) : (
-              <XCircle className="h-5 w-5 text-[#9A3412] dark:text-[#FB923C] shrink-0 mt-0.5" />
+              <XCircle className="h-5 w-5 text-[#C2410C] dark:text-[#FB923C] shrink-0 mt-0.5" />
             )}
             <div>
-              <h2 className="text-base font-bold text-[#1C1917] dark:text-[#F5F2EB]">
+              <h2 className="text-sm sm:text-base font-bold text-[#0F172A] dark:text-[#F8FAFC]">
                 {available ? 'المقالة متوفرة بصيغة PDF' : 'المقالة غير متوفرة حالياً للتحميل المباشر'}
               </h2>
-              <p className="mt-1 text-sm text-[#57534E] dark:text-[#A8A29E] leading-relaxed">
+              <p className="mt-0.5 text-xs sm:text-sm text-[#475569] dark:text-[#94A3B8]">
                 {sciHub?.message}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            {available && directPdfUrl && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => handleDownloadPdf(directPdfUrl, doi)}
-                  disabled={downloading}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-[#15803D] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#166534] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#15803D] disabled:opacity-60 whitespace-nowrap cursor-pointer"
-                >
-                  {downloading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                  <span>{downloading ? 'جارٍ التحضير...' : 'تحميل ملف PDF'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleTogglePreview(directPdfUrl, doi)}
-                  className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[#D6CEBE] dark:border-[#323741] bg-white dark:bg-[#181B21] px-4 py-2.5 text-sm font-medium text-[#1C1917] dark:text-[#F5F2EB] hover:bg-[#F3EFE7] dark:hover:bg-[#232730] transition-colors whitespace-nowrap cursor-pointer"
-                >
-                  {previewOpen ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  <span>{previewOpen ? 'إخفاء المعاينة' : 'معاينة PDF'}</span>
-                </button>
-              </>
-            )}
-
-            <a
-              href={sciHubBoxUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap ${
-                available && !directPdfUrl
-                  ? 'bg-[#1E3A8A] dark:bg-[#3B82F6] text-white hover:bg-[#172E6E] dark:hover:bg-[#2563EB]'
-                  : 'border border-[#D6CEBE] dark:border-[#323741] bg-white dark:bg-[#181B21] text-[#1C1917] dark:text-[#F5F2EB] hover:bg-[#F3EFE7] dark:hover:bg-[#232730]'
-              }`}
-            >
-              <ExternalLink className="h-4 w-4" />
-              <span>{available && !directPdfUrl ? 'تحميل من sci-hub.box' : 'فتح في sci-hub.box'}</span>
-            </a>
-
-            <button
-              type="button"
-              onClick={() => onToggleBookmark(doi)}
-              aria-label={isBookmarked ? 'إزالة من المحفوظات' : 'حفظ في المحفوظات'}
-              title={isBookmarked ? 'إزالة من المحفوظات' : 'حفظ في المحفوظات'}
-              className={`inline-flex min-h-[44px] items-center justify-center gap-1.5 rounded-lg border px-3.5 py-2.5 text-sm font-medium transition-colors whitespace-nowrap cursor-pointer ${
-                isBookmarked
-                  ? 'border-[#1E3A8A] dark:border-[#60A5FA] bg-[#1E3A8A]/10 dark:bg-[#3B82F6]/15 text-[#1E3A8A] dark:text-[#60A5FA]'
-                  : 'border-[#D6CEBE] dark:border-[#323741] bg-white dark:bg-[#181B21] text-[#57534E] dark:text-[#A8A29E] hover:bg-[#F3EFE7] dark:hover:bg-[#232730]'
-              }`}
-            >
-              <Bookmark className={`h-4 w-4 ${isBookmarked ? 'fill-current' : ''}`} />
-              <span>{isBookmarked ? 'محفوظة' : 'حفظ'}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => onToggleBookmark(doi)}
+            aria-label={isBookmarked ? 'إزالة من المحفوظات' : 'حفظ في المحفوظات'}
+            className={`inline-flex min-h-[38px] items-center justify-center gap-1.5 rounded-lg border px-3.5 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap self-start sm:self-center cursor-pointer ${
+              isBookmarked
+                ? 'border-[#2563EB] dark:border-[#60A5FA] bg-[#2563EB]/10 dark:bg-[#3B82F6]/15 text-[#2563EB] dark:text-[#60A5FA]'
+                : 'border-[#CBD5E1] dark:border-[#2A3346] bg-white dark:bg-[#11151E] text-[#475569] dark:text-[#CBD5E1] hover:bg-[#F1F5F9] dark:hover:bg-[#181D29]'
+            }`}
+          >
+            <Bookmark className={`h-3.5 w-3.5 ${isBookmarked ? 'fill-current' : ''}`} />
+            <span>{isBookmarked ? 'محفوظة' : 'حفظ المقالة'}</span>
+          </button>
         </div>
 
         {/* Download feedback */}
         {downloadNotice && (
-          <div className="px-6 py-3 border-b border-[#E4DFD5] dark:border-[#272B33] bg-[#FBF9F5] dark:bg-[#15181E] flex flex-wrap items-center justify-between gap-3 text-sm text-[#1C1917] dark:text-[#F5F2EB]">
+          <div className="px-6 py-3 border-b border-[#E2E8F0] dark:border-[#1F2737] bg-[#F8FAFC] dark:bg-[#0F131C] flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm text-[#0F172A] dark:text-[#F8FAFC]">
             <span>{downloadNotice}</span>
             {directPdfUrl && (
               <a
                 href={directPdfUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#1E3A8A] dark:text-[#60A5FA] font-medium hover:underline underline-offset-4 whitespace-nowrap"
+                className="text-[#2563EB] dark:text-[#60A5FA] font-semibold hover:underline underline-offset-4 whitespace-nowrap"
               >
                 فتح رابط PDF الأصلي مباشرة
               </a>
@@ -363,27 +318,27 @@ export function ResultPanel({
 
         {/* Inline PDF Preview Drawer */}
         {previewOpen && (
-          <div className="border-b border-[#E4DFD5] dark:border-[#272B33] bg-[#F3EFE7] dark:bg-[#111317] p-4 sm:p-6">
+          <div className="border-b border-[#E2E8F0] dark:border-[#1F2737] bg-[#F1F5F9] dark:bg-[#090B10] p-4 sm:p-6">
             {previewLoading ? (
-              <div className="flex items-center justify-center gap-2.5 py-16 text-sm text-[#57534E] dark:text-[#A8A29E]">
-                <Loader2 className="h-5 w-5 animate-spin text-[#1E3A8A] dark:text-[#60A5FA]" />
+              <div className="flex items-center justify-center gap-2.5 py-16 text-sm text-[#475569] dark:text-[#94A3B8]">
+                <Loader2 className="h-5 w-5 animate-spin text-[#2563EB] dark:text-[#60A5FA]" />
                 <span>جارٍ تجهيز معاينة ملف PDF...</span>
               </div>
             ) : previewError ? (
-              <div className="rounded-lg border border-[#E4DFD5] dark:border-[#272B33] bg-white dark:bg-[#181B21] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
-                <span className="text-[#57534E] dark:text-[#A8A29E]">{previewError}</span>
+              <div className="rounded-xl border border-[#E2E8F0] dark:border-[#1F2737] bg-white dark:bg-[#11151E] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm">
+                <span className="text-[#475569] dark:text-[#94A3B8]">{previewError}</span>
                 <a
                   href={sciHubBoxUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 font-semibold text-[#1E3A8A] dark:text-[#60A5FA] hover:underline whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 font-semibold text-[#2563EB] dark:text-[#60A5FA] hover:underline whitespace-nowrap"
                 >
                   <ExternalLink className="h-4 w-4" />
                   <span>فتح عبر sci-hub.box</span>
                 </a>
               </div>
             ) : previewUrl ? (
-              <div className="rounded-lg overflow-hidden border border-[#D6CEBE] dark:border-[#323741] bg-white">
+              <div className="rounded-xl overflow-hidden border border-[#CBD5E1] dark:border-[#2A3346] bg-white">
                 <iframe
                   src={previewUrl}
                   title={`معاينة ${doi}`}
@@ -394,122 +349,83 @@ export function ResultPanel({
           </div>
         )}
 
-        {/* Editorial Article Metadata & DOI Details */}
-        <div className="p-6 sm:p-8">
-          <div className="mb-6">
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#57534E] dark:text-[#A8A29E] mb-2.5">
-              {metadata.journal && (
-                <span className="font-semibold text-[#1C1917] dark:text-[#F5F2EB]">
-                  {metadata.journal}
-                </span>
-              )}
-              {metadata.journal && metadata.year && <span aria-hidden="true">·</span>}
-              {metadata.year && <span className="tabular-nums">{metadata.year}</span>}
-              {volIssuePages && (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span className="tabular-nums">{volIssuePages}</span>
-                </>
-              )}
-              {typeof metadata.citedByCount === 'number' && (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span className="tabular-nums">
-                    الاستشهادات: {metadata.citedByCount.toLocaleString('en-US')}
+        {/* Asymmetric 12-Column Result Workbench */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse divide-[#E2E8F0] dark:divide-[#1F2737]">
+          {/* Main Content Column (8 cols) */}
+          <div className="lg:col-span-8 p-6 sm:p-8 flex flex-col gap-6">
+            <div>
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#64748B] dark:text-[#94A3B8] mb-2.5">
+                {metadata.journal && (
+                  <span className="font-semibold text-[#0F172A] dark:text-[#F8FAFC]">
+                    {metadata.journal}
                   </span>
-                </>
-              )}
-              {doiSource && (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span>المصدر: {doiSource}</span>
-                </>
+                )}
+                {metadata.journal && metadata.year && <span aria-hidden="true">·</span>}
+                {metadata.year && <span className="tabular-nums">{metadata.year}</span>}
+                {volIssuePages && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span className="tabular-nums">{volIssuePages}</span>
+                  </>
+                )}
+                {doiSource && (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span>{doiSource}</span>
+                  </>
+                )}
+              </div>
+
+              <h3
+                dir="auto"
+                className="font-display text-2xl sm:text-[1.75rem] font-bold text-[#0F172A] dark:text-[#F8FAFC] leading-snug tracking-tight"
+              >
+                {metadata.title ?? `مقالة علمية (${doi})`}
+              </h3>
+
+              {metadata.authors.length > 0 && (
+                <p dir="auto" className="mt-3 text-sm text-[#475569] dark:text-[#94A3B8] leading-relaxed">
+                  {metadata.authors.join(' · ')}
+                </p>
               )}
             </div>
 
-            <h3
-              dir="auto"
-              className="font-serif text-2xl sm:text-3xl font-bold text-[#1C1917] dark:text-[#F5F2EB] leading-snug"
-            >
-              {metadata.title ?? `مقالة علمية (${doi})`}
-            </h3>
-
-            {metadata.authors.length > 0 && (
-              <p dir="auto" className="mt-2.5 text-sm text-[#57534E] dark:text-[#A8A29E]">
-                {metadata.authors.join(' · ')}
-              </p>
-            )}
-          </div>
-
-          <dl className="divide-y divide-[#F0ECE3] dark:divide-[#272B33] border-t border-b border-[#F0ECE3] dark:border-[#272B33] text-sm">
-            <div className="py-3.5 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
-              <dt className="font-medium text-[#57534E] dark:text-[#A8A29E]">معرّف DOI المستخرج</dt>
-              <dd className="sm:col-span-3 flex flex-wrap items-center justify-between gap-2">
-                <span
-                  dir="ltr"
-                  className="font-mono text-[#1C1917] dark:text-[#F5F2EB] font-medium break-all"
+            {abstractText && (
+              <div className="pt-5 border-t border-[#F1F5F9] dark:border-[#1F2737]">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#475569] dark:text-[#94A3B8] mb-2">
+                  <FileText className="h-3.5 w-3.5" />
+                  <span>ملخص المقالة (Abstract)</span>
+                </div>
+                <p
+                  dir="auto"
+                  className="text-sm text-[#334155] dark:text-[#CBD5E1] leading-relaxed max-w-prose"
                 >
-                  {doi}
+                  {displayedAbstract}
+                </p>
+                {isLongAbstract && (
+                  <button
+                    type="button"
+                    onClick={() => setShowFullAbstract((prev) => !prev)}
+                    className="mt-2 text-xs font-semibold text-[#2563EB] dark:text-[#60A5FA] hover:underline underline-offset-4 cursor-pointer"
+                  >
+                    {showFullAbstract ? 'عرض أقل' : 'قراءة الملخص كاملاً'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Citation Generator Workbench */}
+            <div className="pt-5 border-t border-[#F1F5F9] dark:border-[#1F2737]">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                <span className="text-xs font-semibold text-[#0F172A] dark:text-[#F8FAFC]">
+                  توليد الاقتباس الأكاديمي
                 </span>
-                <button
-                  type="button"
-                  onClick={() => handleCopy(doi, 'doi')}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-[#E4DFD5] dark:border-[#323741] px-2.5 py-1 text-xs font-medium text-[#57534E] dark:text-[#D6D3CD] hover:bg-[#F3EFE7] dark:hover:bg-[#232730] hover:text-[#1C1917] dark:hover:text-[#F5F2EB] transition-colors cursor-pointer"
-                >
-                  {copiedKey === 'doi' ? (
-                    <Check className="h-3.5 w-3.5 text-[#15803D] dark:text-[#4ADE80]" />
-                  ) : (
-                    <Copy className="h-3.5 w-3.5" />
-                  )}
-                  <span>{copiedKey === 'doi' ? 'تم النسخ' : 'نسخ DOI'}</span>
-                </button>
-              </dd>
-            </div>
 
-            {metadata.publisher && (
-              <div className="py-3.5 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
-                <dt className="font-medium text-[#57534E] dark:text-[#A8A29E]">الناشر</dt>
-                <dd dir="auto" className="sm:col-span-3 text-[#1C1917] dark:text-[#F5F2EB]">
-                  {metadata.publisher}
-                </dd>
-              </div>
-            )}
-
-            {sciHub?.fileSize && (
-              <div className="py-3.5 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
-                <dt className="font-medium text-[#57534E] dark:text-[#A8A29E]">حجم ملف PDF</dt>
-                <dd
-                  dir="ltr"
-                  className="sm:col-span-3 font-mono text-[#1C1917] dark:text-[#F5F2EB] tabular-nums text-right sm:text-left"
-                >
-                  {sciHub.fileSize}
-                </dd>
-              </div>
-            )}
-
-            {sciHub?.sha256 && (
-              <div className="py-3.5 grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
-                <dt className="font-medium text-[#57534E] dark:text-[#A8A29E]">بصمة الملف (SHA256)</dt>
-                <dd
-                  dir="ltr"
-                  className="sm:col-span-3 font-mono text-xs text-[#57534E] dark:text-[#A8A29E] break-all"
-                >
-                  {sciHub.sha256}
-                </dd>
-              </div>
-            )}
-
-            {/* Multi-format Citation Generator */}
-            <div className="py-4 grid grid-cols-1 sm:grid-cols-4 gap-3 items-start">
-              <dt className="font-medium text-[#57534E] dark:text-[#A8A29E] pt-1">
-                الاقتباس الأكاديمي
-              </dt>
-              <dd className="sm:col-span-3 flex flex-col gap-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <div
                     role="tablist"
                     aria-label="صيغة الاقتباس"
-                    className="inline-flex items-center gap-1 rounded-lg bg-[#F3EFE7] dark:bg-[#111317] p-1"
+                    className="inline-flex items-center gap-1 rounded-lg bg-[#F1F5F9] dark:bg-[#090B10] p-1"
                   >
                     {CITATION_FORMATS.map((fmt) => (
                       <button
@@ -520,8 +436,8 @@ export function ResultPanel({
                         onClick={() => setCitationFormat(fmt.id)}
                         className={`rounded-md px-2.5 py-1 font-mono text-xs font-semibold transition-colors cursor-pointer ${
                           citationFormat === fmt.id
-                            ? 'bg-white dark:bg-[#232730] text-[#1C1917] dark:text-[#F5F2EB] shadow-xs'
-                            : 'text-[#57534E] dark:text-[#A8A29E] hover:text-[#1C1917] dark:hover:text-[#F5F2EB]'
+                            ? 'bg-white dark:bg-[#1E2534] text-[#0F172A] dark:text-[#F8FAFC] shadow-xs'
+                            : 'text-[#64748B] dark:text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-[#F8FAFC]'
                         }`}
                       >
                         {fmt.label}
@@ -529,66 +445,141 @@ export function ResultPanel({
                     ))}
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleCopy(formattedCitation, 'citation')}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-[#E4DFD5] dark:border-[#323741] px-2.5 py-1 text-xs font-medium text-[#57534E] dark:text-[#D6D3CD] hover:bg-[#F3EFE7] dark:hover:bg-[#232730] hover:text-[#1C1917] dark:hover:text-[#F5F2EB] transition-colors cursor-pointer"
-                    >
-                      {copiedKey === 'citation' ? (
-                        <Check className="h-3.5 w-3.5 text-[#15803D] dark:text-[#4ADE80]" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                      <span>{copiedKey === 'citation' ? 'تم النسخ' : 'نسخ'}</span>
-                    </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(formattedCitation, 'citation')}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] dark:border-[#2A3346] px-2.5 py-1.5 text-xs font-medium text-[#475569] dark:text-[#CBD5E1] hover:bg-[#F1F5F9] dark:hover:bg-[#181D29] transition-colors cursor-pointer"
+                  >
+                    {copiedKey === 'citation' ? (
+                      <Check className="h-3.5 w-3.5 text-[#059669] dark:text-[#34D399]" />
+                    ) : (
+                      <Copy className="h-3.5 w-3.5" />
+                    )}
+                    <span>{copiedKey === 'citation' ? 'تم النسخ' : 'نسخ'}</span>
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleDownloadBibtex(doi, formatCitation(doi, metadata, 'bibtex'))
-                      }
-                      className="inline-flex items-center gap-1.5 rounded-md border border-[#E4DFD5] dark:border-[#323741] px-2.5 py-1 text-xs font-medium text-[#57534E] dark:text-[#D6D3CD] hover:bg-[#F3EFE7] dark:hover:bg-[#232730] hover:text-[#1C1917] dark:hover:text-[#F5F2EB] transition-colors cursor-pointer"
-                    >
-                      <FileCode2 className="h-3.5 w-3.5" />
-                      <span>تنزيل .bib</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleDownloadBibtex(doi, formatCitation(doi, metadata, 'bibtex'))
+                    }
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-[#E2E8F0] dark:border-[#2A3346] px-2.5 py-1.5 text-xs font-medium text-[#475569] dark:text-[#CBD5E1] hover:bg-[#F1F5F9] dark:hover:bg-[#181D29] transition-colors cursor-pointer"
+                  >
+                    <FileCode2 className="h-3.5 w-3.5" />
+                    <span>تنزيل .bib</span>
+                  </button>
                 </div>
-
-                <pre
-                  dir="ltr"
-                  className="rounded-lg border border-[#E4DFD5] dark:border-[#272B33] bg-[#FBF9F5] dark:bg-[#111317] p-3 text-xs text-[#44403C] dark:text-[#D6D3CD] leading-relaxed text-left whitespace-pre-wrap font-mono"
-                >
-                  {formattedCitation}
-                </pre>
-              </dd>
-            </div>
-          </dl>
-
-          {abstractText && (
-            <div className="mt-5">
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#57534E] dark:text-[#A8A29E] mb-2">
-                <FileText className="h-3.5 w-3.5" />
-                <span>ملخص المقالة (Abstract)</span>
               </div>
-              <p
-                dir="auto"
-                className="text-sm text-[#44403C] dark:text-[#D6D3CD] leading-relaxed max-w-prose"
+
+              <pre
+                dir="ltr"
+                className="rounded-xl border border-[#E2E8F0] dark:border-[#1F2737] bg-[#F8FAFC] dark:bg-[#090B10] p-3.5 text-xs text-[#334155] dark:text-[#CBD5E1] leading-relaxed text-left whitespace-pre-wrap font-mono"
               >
-                {displayedAbstract}
-              </p>
-              {isLongAbstract && (
-                <button
-                  type="button"
-                  onClick={() => setShowFullAbstract((prev) => !prev)}
-                  className="mt-2 text-xs font-medium text-[#1E3A8A] dark:text-[#60A5FA] hover:underline underline-offset-4 cursor-pointer"
-                >
-                  {showFullAbstract ? 'عرض أقل' : 'قراءة الملخص كاملاً'}
-                </button>
-              )}
+                {formattedCitation}
+              </pre>
             </div>
-          )}
+          </div>
+
+          {/* Action & Specification Sidebar (4 cols) */}
+          <aside className="lg:col-span-4 bg-[#F8FAFC]/70 dark:bg-[#0D1017]/80 p-6 flex flex-col gap-5">
+            <div className="flex flex-col gap-2.5">
+              {available && directPdfUrl && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadPdf(directPdfUrl, doi)}
+                    disabled={downloading}
+                    className="w-full inline-flex min-h-[46px] items-center justify-center gap-2 rounded-xl bg-[#059669] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#047857] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#059669] disabled:opacity-60 whitespace-nowrap cursor-pointer"
+                  >
+                    {downloading ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4" />
+                    )}
+                    <span>{downloading ? 'جارٍ تحضير الملف...' : 'تحميل ملف PDF'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePreview(directPdfUrl, doi)}
+                    className="w-full inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl border border-[#CBD5E1] dark:border-[#2A3346] bg-white dark:bg-[#11151E] px-4 py-2.5 text-sm font-medium text-[#0F172A] dark:text-[#F8FAFC] hover:bg-[#F1F5F9] dark:hover:bg-[#181D29] transition-colors whitespace-nowrap cursor-pointer"
+                  >
+                    {previewOpen ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    <span>{previewOpen ? 'إخفاء المعاينة' : 'معاينة سريعة للـ PDF'}</span>
+                  </button>
+                </>
+              )}
+
+              <a
+                href={sciHubBoxUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap ${
+                  available && !directPdfUrl
+                    ? 'bg-[#2563EB] text-white hover:bg-[#1D4ED8]'
+                    : 'border border-[#CBD5E1] dark:border-[#2A3346] bg-white dark:bg-[#11151E] text-[#0F172A] dark:text-[#F8FAFC] hover:bg-[#F1F5F9] dark:hover:bg-[#181D29]'
+                }`}
+              >
+                <ExternalLink className="h-4 w-4" />
+                <span>{available && !directPdfUrl ? 'تحميل من sci-hub.box' : 'فتح في sci-hub.box'}</span>
+              </a>
+            </div>
+
+            <dl className="divide-y divide-[#E2E8F0] dark:divide-[#1F2737] border-t border-[#E2E8F0] dark:border-[#1F2737] text-xs">
+              <div className="py-3 flex flex-col gap-1.5">
+                <dt className="text-[#64748B] dark:text-[#94A3B8] font-medium">معرّف DOI</dt>
+                <dd className="flex items-center justify-between gap-2">
+                  <span dir="ltr" className="font-mono text-[#0F172A] dark:text-[#F8FAFC] font-semibold break-all">
+                    {doi}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCopy(doi, 'doi')}
+                    aria-label="نسخ معرّف DOI"
+                    className="shrink-0 rounded-md border border-[#E2E8F0] dark:border-[#2A3346] bg-white dark:bg-[#11151E] px-2 py-1 text-[11px] font-medium text-[#475569] dark:text-[#CBD5E1] hover:bg-[#F1F5F9] dark:hover:bg-[#181D29] cursor-pointer"
+                  >
+                    {copiedKey === 'doi' ? 'تم النسخ' : 'نسخ'}
+                  </button>
+                </dd>
+              </div>
+
+              {typeof metadata.citedByCount === 'number' && (
+                <div className="py-3 flex items-center justify-between gap-2">
+                  <dt className="text-[#64748B] dark:text-[#94A3B8] font-medium">الاستشهادات</dt>
+                  <dd className="font-mono font-semibold text-[#0F172A] dark:text-[#F8FAFC] tabular-nums">
+                    {metadata.citedByCount.toLocaleString('en-US')}
+                  </dd>
+                </div>
+              )}
+
+              {metadata.publisher && (
+                <div className="py-3 flex items-center justify-between gap-3">
+                  <dt className="text-[#64748B] dark:text-[#94A3B8] font-medium shrink-0">الناشر</dt>
+                  <dd dir="auto" className="text-[#0F172A] dark:text-[#F8FAFC] font-medium text-left truncate">
+                    {metadata.publisher}
+                  </dd>
+                </div>
+              )}
+
+              {sciHub?.fileSize && (
+                <div className="py-3 flex items-center justify-between gap-2">
+                  <dt className="text-[#64748B] dark:text-[#94A3B8] font-medium">حجم الملف</dt>
+                  <dd dir="ltr" className="font-mono font-semibold text-[#0F172A] dark:text-[#F8FAFC] tabular-nums">
+                    {sciHub.fileSize}
+                  </dd>
+                </div>
+              )}
+
+              {sciHub?.sha256 && (
+                <div className="py-3 flex flex-col gap-1">
+                  <dt className="text-[#64748B] dark:text-[#94A3B8] font-medium">بصمة SHA256</dt>
+                  <dd dir="ltr" className="font-mono text-[11px] text-[#475569] dark:text-[#94A3B8] break-all">
+                    {sciHub.sha256}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </aside>
         </div>
       </motion.div>
     </section>

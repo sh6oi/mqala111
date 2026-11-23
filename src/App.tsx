@@ -196,11 +196,17 @@ export default function App() {
     result?.doi && history.some((item) => item.doi === result.doi && item.bookmarked)
   );
 
+  const stats = {
+    total: history.length,
+    available: history.filter((i) => i.available).length,
+    bookmarked: history.filter((i) => i.bookmarked).length,
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-[#FBF9F5] dark:bg-[#111317] text-[#1C1917] dark:text-[#F5F2EB] transition-colors">
+    <div className="min-h-screen flex flex-col bg-[#F8FAFC] dark:bg-[#090B10] text-[#0F172A] dark:text-[#F8FAFC] transition-colors">
       <Header onNewSearch={handleNewSearch} />
 
-      <main className="flex-1 px-4 sm:px-6">
+      <main className="flex-1">
         <SearchForm
           mode={mode}
           onModeChange={setMode}
@@ -214,6 +220,7 @@ export default function App() {
           onSubmitBatch={handleLookupBatch}
           isLoading={isLoading}
           inputRef={inputRef}
+          stats={stats}
         />
 
         {mode === 'single' ? (
@@ -237,14 +244,14 @@ export default function App() {
         <WorkflowSection />
       </main>
 
-      <footer className="border-t border-[#E4DFD5] dark:border-[#272B33] bg-[#FBF9F5] dark:bg-[#111317] py-6 px-6 transition-colors">
-        <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#57534E] dark:text-[#A8A29E]">
+      <footer className="border-t border-[#E2E8F0] dark:border-[#1F2737] bg-[#F8FAFC] dark:bg-[#090B10] py-6 px-6 transition-colors">
+        <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#64748B] dark:text-[#94A3B8]">
           <span>المستكشف الأكاديمي · أداة استخراج DOI والبحث عبر sci-hub.box</span>
           <a
             href="https://sci-hub.box/"
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-[#1C1917] dark:hover:text-[#F5F2EB] hover:underline underline-offset-4 transition-colors"
+            className="hover:text-[#0F172A] dark:hover:text-[#F8FAFC] hover:underline underline-offset-4 transition-colors"
           >
             الانتقال إلى sci-hub.box
           </a>

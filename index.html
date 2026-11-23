@@ -12,51 +12,51 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
   </head>
-  <body class="bg-[#FBF9F5] dark:bg-[#111317] text-[#1C1917] dark:text-[#F5F2EB] antialiased selection:bg-[#1E3A8A]/15 selection:text-[#1E3A8A] font-sans transition-colors">
+  <body class="bg-[#F8FAFC] dark:bg-[#090B10] text-[#0F172A] dark:text-[#F8FAFC] antialiased selection:bg-[#2563EB]/15 selection:text-[#2563EB] font-sans transition-colors">
     <div id="root">
-      <div class="min-h-screen flex flex-col bg-[#FBF9F5] text-[#1C1917]">
-        <header class="border-b border-[#E4DFD5] bg-[#FBF9F5]">
-          <div class="mx-auto flex max-w-6xl items-center justify-between gap-8 px-6 py-4">
-            <a href="#search" class="font-serif text-xl font-bold tracking-tight text-[#1C1917] whitespace-nowrap shrink-0">
+      <div class="min-h-screen flex flex-col bg-[#F8FAFC] text-[#0F172A]">
+        <header class="sticky top-0 z-30 border-b border-[#E2E8F0] bg-[#F8FAFC]/90 backdrop-blur-md">
+          <div class="mx-auto flex max-w-6xl items-center justify-between gap-8 px-6 py-3.5">
+            <a href="#search" class="text-lg font-bold tracking-tight text-[#0F172A] whitespace-nowrap shrink-0">
               المستكشف الأكاديمي
             </a>
-            <nav aria-label="التنقل الرئيسي" class="hidden md:flex items-center gap-6 text-sm font-medium text-[#57534E]">
-              <a href="#search" class="hover:text-[#1C1917] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0">أداة البحث</a>
-              <a href="#history" class="hover:text-[#1C1917] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0">سجل المقالات</a>
-              <a href="#workflow" class="hover:text-[#1C1917] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0">آلية العمل</a>
-              <a href="https://sci-hub.box/" target="_blank" rel="noopener noreferrer" class="hover:text-[#1C1917] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0">sci-hub.box</a>
+            <nav aria-label="التنقل الرئيسي" class="hidden md:flex items-center gap-7 text-sm font-medium text-[#475569]">
+              <a href="#search" class="hover:text-[#0F172A] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0">أداة البحث</a>
+              <a href="#history" class="hover:text-[#0F172A] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0">سجل المقالات</a>
+              <a href="#workflow" class="hover:text-[#0F172A] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0">آلية العمل</a>
+              <a href="https://sci-hub.box/" target="_blank" rel="noopener noreferrer" class="hover:text-[#0F172A] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0">sci-hub.box</a>
             </nav>
             <div class="flex items-center shrink-0">
-              <button id="gh-new-search-btn" type="button" class="min-h-[40px] rounded-lg bg-[#1E3A8A] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#172E6E] whitespace-nowrap shrink-0 cursor-pointer">
+              <button id="gh-new-search-btn" type="button" class="min-h-[40px] rounded-lg bg-[#2563EB] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#1D4ED8] whitespace-nowrap shrink-0 cursor-pointer">
                 بحث جديد
               </button>
             </div>
           </div>
         </header>
 
-        <main class="flex-1 px-4 sm:px-6">
-          <section id="search" class="pt-10 pb-8 md:pt-14 md:pb-10">
-            <div class="mx-auto max-w-4xl">
+        <main class="flex-1">
+          <section id="search" class="py-10 md:py-14 border-b border-[#E2E8F0]">
+            <div class="mx-auto max-w-5xl px-4 sm:px-6">
               <div class="mb-8 text-center">
-                <p class="text-xs font-medium tracking-wide text-[#57534E] mb-3">
-                  استخراج المعرّف الرقمي للوثائق · البحث في sci-hub.box · تحميل PDF
+                <p class="text-xs font-medium tracking-wide text-[#475569] mb-3">
+                  استخراج معرّف DOI · التحقق عبر sci-hub.box · تحميل PDF
                 </p>
-                <h1 class="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1C1917] leading-tight mx-auto max-w-3xl">
-                  استخراج معرّف DOI من رابط المقالة والبحث عنها للتحميل
+                <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold text-[#0F172A] leading-tight mx-auto max-w-3xl tracking-tight">
+                  من رابط المقالة إلى ملف PDF في ثوانٍ
                 </h1>
-                <p class="mt-4 text-base text-[#57534E] max-w-2xl mx-auto leading-relaxed">
+                <p class="mt-4 text-base text-[#475569] max-w-2xl mx-auto leading-relaxed">
                   أدخل رابط أي ورقة بحثية أو مقالة علمية لاستخراج معرّف DOI الخاص بها تلقائياً، ثم التحقق من توفرها عبر
-                  <span dir="ltr" class="font-mono text-sm text-[#1C1917] font-medium">https://sci-hub.box/</span>
+                  <span dir="ltr" class="font-mono text-sm text-[#0F172A] font-medium">https://sci-hub.box/</span>
                   وإظهار زر تحميل ملف PDF مباشرة.
                 </p>
               </div>
 
-              <form id="gh-search-form" class="rounded-xl border border-[#E4DFD5] bg-white p-5 sm:p-6">
-                <label for="article-url-input" class="block text-sm font-semibold text-[#1C1917] mb-2.5">
+              <form id="gh-search-form" class="rounded-2xl border border-[#E2E8F0] bg-white p-5 sm:p-6 shadow-sm">
+                <label for="article-url-input" class="block text-sm font-semibold text-[#0F172A] mb-2.5">
                   رابط المقالة العلمية أو معرّف DOI
                 </label>
 
@@ -69,14 +69,14 @@
                       placeholder="https://www.nature.com/articles/...  أو  10.1038/..."
                       autocomplete="off"
                       spellcheck="false"
-                      class="w-full min-h-[48px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] pr-4 pl-20 py-3 font-mono text-sm text-[#1C1917] placeholder:text-[#78716C] focus:border-[#1E3A8A] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/15"
+                      class="w-full min-h-[48px] rounded-xl border border-[#CBD5E1] bg-[#F8FAFC] pr-4 pl-20 py-3 font-mono text-sm text-[#0F172A] placeholder:text-[#64748B] focus:border-[#2563EB] focus:bg-white focus:outline-none focus:ring-4 focus:ring-[#2563EB]/10"
                     />
                     <div class="absolute left-2 flex items-center gap-1">
                       <button
                         id="gh-paste-btn"
                         type="button"
                         aria-label="لصق من الحافظة"
-                        class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#57534E] hover:bg-[#EBE6DF] hover:text-[#1C1917] transition-colors cursor-pointer"
+                        class="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-[#475569] hover:bg-[#E2E8F0] hover:text-[#0F172A] transition-colors cursor-pointer"
                       >
                         <span>لصق</span>
                       </button>
@@ -86,69 +86,69 @@
                   <button
                     id="gh-submit-btn"
                     type="submit"
-                    class="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-[#1E3A8A] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#172E6E] whitespace-nowrap shrink-0 cursor-pointer"
+                    class="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-[#2563EB] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#1D4ED8] whitespace-nowrap shrink-0 cursor-pointer"
                   >
                     <span>استخراج DOI والبحث</span>
                   </button>
                 </div>
 
-                <div class="mt-4 pt-4 border-t border-[#F0ECE3] flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[#57534E]">
-                  <span class="font-medium text-[#1C1917]">أمثلة سريعة للتجربة:</span>
-                  <button type="button" data-example-url="https://www.nature.com/articles/nature12373" class="gh-example-btn text-[#1E3A8A] hover:underline underline-offset-4 cursor-pointer">Nature (2013)</button>
-                  <button type="button" data-example-url="https://www.sciencedirect.com/science/article/pii/S0092867413006454" class="gh-example-btn text-[#1E3A8A] hover:underline underline-offset-4 cursor-pointer">ScienceDirect / Cell (2013)</button>
-                  <button type="button" data-example-url="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0115069" class="gh-example-btn text-[#1E3A8A] hover:underline underline-offset-4 cursor-pointer">PLOS ONE (مفتوح الوصول)</button>
-                  <button type="button" data-example-url="https://arxiv.org/abs/1706.03762" class="gh-example-btn text-[#1E3A8A] hover:underline underline-offset-4 cursor-pointer">arXiv — Transformer (2017)</button>
+                <div class="mt-4 pt-4 border-t border-[#F1F5F9] flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[#475569]">
+                  <span class="font-semibold text-[#0F172A]">أمثلة سريعة للتجربة:</span>
+                  <button type="button" data-example-url="https://www.nature.com/articles/nature12373" class="gh-example-btn text-[#2563EB] hover:underline underline-offset-4 cursor-pointer">Nature (2013)</button>
+                  <button type="button" data-example-url="https://www.sciencedirect.com/science/article/pii/S0092867413006454" class="gh-example-btn text-[#2563EB] hover:underline underline-offset-4 cursor-pointer">ScienceDirect / Cell (2013)</button>
+                  <button type="button" data-example-url="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0115069" class="gh-example-btn text-[#2563EB] hover:underline underline-offset-4 cursor-pointer">PLOS ONE (مفتوح الوصول)</button>
+                  <button type="button" data-example-url="https://arxiv.org/abs/1706.03762" class="gh-example-btn text-[#2563EB] hover:underline underline-offset-4 cursor-pointer">arXiv — Transformer (2017)</button>
                 </div>
               </form>
             </div>
           </section>
 
-          <section id="gh-result-section" aria-live="polite" class="mx-auto max-w-4xl pb-10 hidden"></section>
+          <section id="gh-result-section" aria-live="polite" class="mx-auto max-w-5xl px-4 sm:px-6 pt-8 pb-4 hidden"></section>
 
-          <section id="history" class="mx-auto max-w-4xl py-8 border-t border-[#E4DFD5]">
+          <section id="history" class="mx-auto max-w-5xl px-4 sm:px-6 py-10">
             <div class="flex items-center justify-between gap-4 mb-5">
               <div>
-                <h2 class="font-serif text-2xl font-bold text-[#1C1917]">سجل المقالات الأخيرة</h2>
-                <p class="text-sm text-[#57534E] mt-1">عمليات البحث السابقة المحفوظة محلياً على جهازك للوصول السريع.</p>
+                <h2 class="text-2xl font-bold text-[#0F172A]">سجل المقالات الأخيرة</h2>
+                <p class="text-sm text-[#475569] mt-1">عمليات البحث السابقة المحفوظة محلياً على جهازك للوصول السريع.</p>
               </div>
-              <button id="gh-clear-history-btn" type="button" class="hidden items-center gap-1.5 rounded-lg border border-[#E4DFD5] bg-white px-3 py-2 text-xs font-medium text-[#57534E] hover:bg-[#F3EFE7] hover:text-[#1C1917] transition-colors whitespace-nowrap shrink-0 cursor-pointer">
+              <button id="gh-clear-history-btn" type="button" class="hidden items-center gap-1.5 rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-xs font-medium text-[#475569] hover:bg-[#F1F5F9] hover:text-[#0F172A] transition-colors whitespace-nowrap shrink-0 cursor-pointer">
                 مسح السجل
               </button>
             </div>
-            <div id="gh-history-container" class="rounded-xl border border-[#E4DFD5] bg-white px-6 py-8 text-center text-sm text-[#57534E]">
+            <div id="gh-history-container" class="rounded-2xl border border-[#E2E8F0] bg-white px-6 py-8 text-center text-sm text-[#475569]">
               لا توجد مقالات في السجل بعد. أدخل رابط مقالة علمية في الأعلى لبدء البحث.
             </div>
           </section>
 
-          <section id="workflow" class="mx-auto max-w-4xl py-10 border-t border-[#E4DFD5]">
+          <section id="workflow" class="mx-auto max-w-5xl px-4 sm:px-6 py-10 border-t border-[#E2E8F0]">
             <div class="mb-6">
-              <h2 class="font-serif text-2xl font-bold text-[#1C1917]">آلية عمل الأداة</h2>
-              <p class="text-sm text-[#57534E] mt-1">ثلاث خطوات متسلسلة من رابط المقالة حتى تحميل ملف PDF.</p>
+              <h2 class="text-2xl font-bold text-[#0F172A]">آلية عمل الأداة</h2>
+              <p class="text-sm text-[#475569] mt-1">ثلاث خطوات متكاملة من رابط المقالة حتى تحميل ملف PDF.</p>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div class="rounded-xl border border-[#E4DFD5] bg-white p-5 flex flex-col">
-                <span class="font-mono text-sm font-semibold text-[#1E3A8A] tabular-nums mb-2">01.</span>
-                <h3 class="text-base font-bold text-[#1C1917] mb-2">استخراج معرّف DOI تلقائياً</h3>
-                <p class="text-sm text-[#57534E] leading-relaxed">يحلل النظام رابط المقالة ويبحث في الوسوم الأكاديمية الوصفية وقواعد بيانات Crossref وPubMed وarXiv لتحديد معرّف DOI الدقيق.</p>
+              <div class="rounded-2xl border border-[#E2E8F0] bg-white p-6 flex flex-col">
+                <span class="font-mono text-sm font-semibold text-[#2563EB] tabular-nums mb-2">01.</span>
+                <h3 class="text-base font-bold text-[#0F172A] mb-2">استخراج معرّف DOI تلقائياً</h3>
+                <p class="text-sm text-[#475569] leading-relaxed">يحلل النظام رابط المقالة ويبحث في الوسوم الأكاديمية الوصفية وقواعد بيانات Crossref وPubMed وarXiv لتحديد معرّف DOI الدقيق.</p>
               </div>
-              <div class="rounded-xl border border-[#E4DFD5] bg-white p-5 flex flex-col">
-                <span class="font-mono text-sm font-semibold text-[#1E3A8A] tabular-nums mb-2">02.</span>
-                <h3 class="text-base font-bold text-[#1C1917] mb-2">البحث في موقع sci-hub.box</h3>
-                <p class="text-sm text-[#57534E] leading-relaxed">يتم الاستعلام مباشرة عن معرّف DOI المستخرج عبر sci-hub.box للتحقق من وجود نسخة رقمية مفهرسة للمقالة.</p>
+              <div class="rounded-2xl border border-[#E2E8F0] bg-white p-6 flex flex-col">
+                <span class="font-mono text-sm font-semibold text-[#2563EB] tabular-nums mb-2">02.</span>
+                <h3 class="text-base font-bold text-[#0F172A] mb-2">البحث في موقع sci-hub.box</h3>
+                <p class="text-sm text-[#475569] leading-relaxed">يتم الاستعلام مباشرة عن معرّف DOI المستخرج عبر sci-hub.box للتحقق من وجود نسخة رقمية مفهرسة للمقالة.</p>
               </div>
-              <div class="rounded-xl border border-[#E4DFD5] bg-white p-5 flex flex-col">
-                <span class="font-mono text-sm font-semibold text-[#1E3A8A] tabular-nums mb-2">03.</span>
-                <h3 class="text-base font-bold text-[#1C1917] mb-2">إتاحة زر تحميل ملف PDF</h3>
-                <p class="text-sm text-[#57534E] leading-relaxed">عند توفر المقالة يظهر زر تحميل ملف PDF فوراً لحفظ الورقة البحثية، مع توفير رابط مباشر لصفحة المقالة على sci-hub.box.</p>
+              <div class="rounded-2xl border border-[#E2E8F0] bg-white p-6 flex flex-col">
+                <span class="font-mono text-sm font-semibold text-[#2563EB] tabular-nums mb-2">03.</span>
+                <h3 class="text-base font-bold text-[#0F172A] mb-2">إتاحة زر تحميل ملف PDF</h3>
+                <p class="text-sm text-[#475569] leading-relaxed">عند توفر المقالة يظهر زر تحميل ملف PDF فوراً لحفظ الورقة البحثية، مع توفير رابط مباشر لصفحة المقالة على sci-hub.box.</p>
               </div>
             </div>
           </section>
         </main>
 
-        <footer class="border-t border-[#E4DFD5] bg-[#FBF9F5] py-6 px-6">
-          <div class="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#57534E]">
+        <footer class="border-t border-[#E2E8F0] bg-[#F8FAFC] py-6 px-6">
+          <div class="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#64748B]">
             <span>المستكشف الأكاديمي · أداة استخراج DOI والبحث عبر sci-hub.box</span>
-            <a href="https://sci-hub.box/" target="_blank" rel="noopener noreferrer" class="hover:text-[#1C1917] hover:underline underline-offset-4 transition-colors">
+            <a href="https://sci-hub.box/" target="_blank" rel="noopener noreferrer" class="hover:text-[#0F172A] hover:underline underline-offset-4 transition-colors">
               الانتقال إلى sci-hub.box
             </a>
           </div>
