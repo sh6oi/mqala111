@@ -16,8 +16,486 @@
       rel="stylesheet"
     />
   </head>
-  <body class="bg-[#FBF9F5] text-[#1C1917] antialiased selection:bg-[#1E3A8A]/15 selection:text-[#1E3A8A]">
-    <div id="root"></div>
+  <body class="bg-[#FBF9F5] text-[#1C1917] antialiased selection:bg-[#1E3A8A]/15 selection:text-[#1E3A8A] font-sans">
+    <div id="root">
+      <div class="min-h-screen flex flex-col bg-[#FBF9F5] text-[#1C1917]">
+        <header class="border-b border-[#E4DFD5] bg-[#FBF9F5]">
+          <div class="mx-auto flex max-w-6xl items-center justify-between gap-8 px-6 py-4">
+            <a href="#search" class="font-serif text-xl font-bold tracking-tight text-[#1C1917] whitespace-nowrap shrink-0">
+              المستكشف الأكاديمي
+            </a>
+            <nav aria-label="التنقل الرئيسي" class="hidden md:flex items-center gap-6 text-sm font-medium text-[#57534E]">
+              <a href="#search" class="hover:text-[#1C1917] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0">أداة البحث</a>
+              <a href="#history" class="hover:text-[#1C1917] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0">سجل المقالات</a>
+              <a href="#workflow" class="hover:text-[#1C1917] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0">آلية العمل</a>
+              <a href="https://sci-hub.box/" target="_blank" rel="noopener noreferrer" class="hover:text-[#1C1917] hover:underline underline-offset-4 transition-colors whitespace-nowrap shrink-0">sci-hub.box</a>
+            </nav>
+            <div class="flex items-center shrink-0">
+              <button id="gh-new-search-btn" type="button" class="min-h-[40px] rounded-lg bg-[#1E3A8A] px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-[#172E6E] whitespace-nowrap shrink-0 cursor-pointer">
+                بحث جديد
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main class="flex-1 px-4 sm:px-6">
+          <section id="search" class="pt-10 pb-8 md:pt-14 md:pb-10">
+            <div class="mx-auto max-w-4xl">
+              <div class="mb-8 text-center">
+                <p class="text-xs font-medium tracking-wide text-[#57534E] mb-3">
+                  استخراج المعرّف الرقمي للوثائق · البحث في sci-hub.box · تحميل PDF
+                </p>
+                <h1 class="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold text-[#1C1917] leading-tight mx-auto max-w-3xl">
+                  استخراج معرّف DOI من رابط المقالة والبحث عنها للتحميل
+                </h1>
+                <p class="mt-4 text-base text-[#57534E] max-w-2xl mx-auto leading-relaxed">
+                  أدخل رابط أي ورقة بحثية أو مقالة علمية لاستخراج معرّف DOI الخاص بها تلقائياً، ثم التحقق من توفرها عبر
+                  <span dir="ltr" class="font-mono text-sm text-[#1C1917] font-medium">https://sci-hub.box/</span>
+                  وإظهار زر تحميل ملف PDF مباشرة.
+                </p>
+              </div>
+
+              <form id="gh-search-form" class="rounded-xl border border-[#E4DFD5] bg-white p-5 sm:p-6">
+                <label for="article-url-input" class="block text-sm font-semibold text-[#1C1917] mb-2.5">
+                  رابط المقالة العلمية أو معرّف DOI
+                </label>
+
+                <div class="flex flex-col sm:flex-row gap-3">
+                  <div class="relative flex-1 flex items-center">
+                    <input
+                      id="article-url-input"
+                      type="text"
+                      dir="ltr"
+                      placeholder="https://www.nature.com/articles/...  أو  10.1038/..."
+                      autocomplete="off"
+                      spellcheck="false"
+                      class="w-full min-h-[48px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] pr-4 pl-20 py-3 font-mono text-sm text-[#1C1917] placeholder:text-[#78716C] focus:border-[#1E3A8A] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#1E3A8A]/15"
+                    />
+                    <div class="absolute left-2 flex items-center gap-1">
+                      <button
+                        id="gh-paste-btn"
+                        type="button"
+                        aria-label="لصق من الحافظة"
+                        class="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#57534E] hover:bg-[#EBE6DF] hover:text-[#1C1917] transition-colors cursor-pointer"
+                      >
+                        <span>لصق</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    id="gh-submit-btn"
+                    type="submit"
+                    class="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-lg bg-[#1E3A8A] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#172E6E] whitespace-nowrap shrink-0 cursor-pointer"
+                  >
+                    <span>استخراج DOI والبحث</span>
+                  </button>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-[#F0ECE3] flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-[#57534E]">
+                  <span class="font-medium text-[#1C1917]">أمثلة سريعة للتجربة:</span>
+                  <button type="button" data-example-url="https://www.nature.com/articles/nature12373" class="gh-example-btn text-[#1E3A8A] hover:underline underline-offset-4 cursor-pointer">Nature (2013)</button>
+                  <button type="button" data-example-url="https://www.sciencedirect.com/science/article/pii/S0092867413006454" class="gh-example-btn text-[#1E3A8A] hover:underline underline-offset-4 cursor-pointer">ScienceDirect / Cell (2013)</button>
+                  <button type="button" data-example-url="https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0115069" class="gh-example-btn text-[#1E3A8A] hover:underline underline-offset-4 cursor-pointer">PLOS ONE (مفتوح الوصول)</button>
+                  <button type="button" data-example-url="https://arxiv.org/abs/1706.03762" class="gh-example-btn text-[#1E3A8A] hover:underline underline-offset-4 cursor-pointer">arXiv — Transformer (2017)</button>
+                </div>
+              </form>
+            </div>
+          </section>
+
+          <section id="gh-result-section" aria-live="polite" class="mx-auto max-w-4xl pb-10 hidden"></section>
+
+          <section id="history" class="mx-auto max-w-4xl py-8 border-t border-[#E4DFD5]">
+            <div class="flex items-center justify-between gap-4 mb-5">
+              <div>
+                <h2 class="font-serif text-2xl font-bold text-[#1C1917]">سجل المقالات الأخيرة</h2>
+                <p class="text-sm text-[#57534E] mt-1">عمليات البحث السابقة المحفوظة محلياً على جهازك للوصول السريع.</p>
+              </div>
+              <button id="gh-clear-history-btn" type="button" class="hidden items-center gap-1.5 rounded-lg border border-[#E4DFD5] bg-white px-3 py-2 text-xs font-medium text-[#57534E] hover:bg-[#F3EFE7] hover:text-[#1C1917] transition-colors whitespace-nowrap shrink-0 cursor-pointer">
+                مسح السجل
+              </button>
+            </div>
+            <div id="gh-history-container" class="rounded-xl border border-[#E4DFD5] bg-white px-6 py-8 text-center text-sm text-[#57534E]">
+              لا توجد مقالات في السجل بعد. أدخل رابط مقالة علمية في الأعلى لبدء البحث.
+            </div>
+          </section>
+
+          <section id="workflow" class="mx-auto max-w-4xl py-10 border-t border-[#E4DFD5]">
+            <div class="mb-6">
+              <h2 class="font-serif text-2xl font-bold text-[#1C1917]">آلية عمل الأداة</h2>
+              <p class="text-sm text-[#57534E] mt-1">ثلاث خطوات متسلسلة من رابط المقالة حتى تحميل ملف PDF.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="rounded-xl border border-[#E4DFD5] bg-white p-5 flex flex-col">
+                <span class="font-mono text-sm font-semibold text-[#1E3A8A] tabular-nums mb-2">01.</span>
+                <h3 class="text-base font-bold text-[#1C1917] mb-2">استخراج معرّف DOI تلقائياً</h3>
+                <p class="text-sm text-[#57534E] leading-relaxed">يحلل النظام رابط المقالة ويبحث في الوسوم الأكاديمية الوصفية وقواعد بيانات Crossref وPubMed وarXiv لتحديد معرّف DOI الدقيق.</p>
+              </div>
+              <div class="rounded-xl border border-[#E4DFD5] bg-white p-5 flex flex-col">
+                <span class="font-mono text-sm font-semibold text-[#1E3A8A] tabular-nums mb-2">02.</span>
+                <h3 class="text-base font-bold text-[#1C1917] mb-2">البحث في موقع sci-hub.box</h3>
+                <p class="text-sm text-[#57534E] leading-relaxed">يتم الاستعلام مباشرة عن معرّف DOI المستخرج عبر sci-hub.box للتحقق من وجود نسخة رقمية مفهرسة للمقالة.</p>
+              </div>
+              <div class="rounded-xl border border-[#E4DFD5] bg-white p-5 flex flex-col">
+                <span class="font-mono text-sm font-semibold text-[#1E3A8A] tabular-nums mb-2">03.</span>
+                <h3 class="text-base font-bold text-[#1C1917] mb-2">إتاحة زر تحميل ملف PDF</h3>
+                <p class="text-sm text-[#57534E] leading-relaxed">عند توفر المقالة يظهر زر تحميل ملف PDF فوراً لحفظ الورقة البحثية، مع توفير رابط مباشر لصفحة المقالة على sci-hub.box.</p>
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <footer class="border-t border-[#E4DFD5] bg-[#FBF9F5] py-6 px-6">
+          <div class="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#57534E]">
+            <span>المستكشف الأكاديمي · أداة استخراج DOI والبحث عبر sci-hub.box</span>
+            <a href="https://sci-hub.box/" target="_blank" rel="noopener noreferrer" class="hover:text-[#1C1917] hover:underline underline-offset-4 transition-colors">
+              الانتقال إلى sci-hub.box
+            </a>
+          </div>
+        </footer>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.tsx"></script>
+
+    <!-- Fallback runtime for static GitHub Pages hosting when Vite build is not running -->
+    <script>
+      window.addEventListener('load', function () {
+        if (window.__REACT_MOUNTED__) return;
+
+        // Load Tailwind Browser runtime so static index.html renders with full styling on GitHub Pages
+        var tw = document.createElement('script');
+        tw.src = 'https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4';
+        document.head.appendChild(tw);
+
+          var HISTORY_KEY = 'academic_doi_scihub_history_v1';
+          var DOI_REGEX = /10\.\d{4,9}\/[-._;()/:A-Za-z0-9]+/;
+
+          var form = document.getElementById('gh-search-form');
+          var inputEl = document.getElementById('article-url-input');
+          var submitBtn = document.getElementById('gh-submit-btn');
+          var pasteBtn = document.getElementById('gh-paste-btn');
+          var newSearchBtn = document.getElementById('gh-new-search-btn');
+          var resultSection = document.getElementById('gh-result-section');
+          var historyContainer = document.getElementById('gh-history-container');
+          var clearHistoryBtn = document.getElementById('gh-clear-history-btn');
+
+          function cleanDoi(raw) {
+            if (!raw) return null;
+            var candidate = decodeURIComponent(String(raw).trim())
+              .replace(/^doi:\s*/i, '')
+              .replace(/^https?:\/\/(?:dx\.)?doi\.org\//i, '');
+            var m = candidate.match(DOI_REGEX);
+            if (!m) return null;
+            var doi = m[0].replace(/[.,;:'"!?]+$/, '').replace(/\/(full|pdf|abstract|epdf|html|meta)$/i, '');
+            return /^10\.\d{4,9}\/\S+$/.test(doi) ? doi : null;
+          }
+
+          function el(tag, className, text) {
+            var node = document.createElement(tag);
+            if (className) node.className = className;
+            if (text !== undefined && text !== null) node.textContent = text;
+            return node;
+          }
+
+          function loadHistory() {
+            try {
+              var raw = localStorage.getItem(HISTORY_KEY);
+              var arr = raw ? JSON.parse(raw) : [];
+              return Array.isArray(arr) ? arr : [];
+            } catch (e) {
+              return [];
+            }
+          }
+
+          function renderHistory() {
+            var items = loadHistory();
+            historyContainer.innerHTML = '';
+            if (!items.length) {
+              historyContainer.className = 'rounded-xl border border-[#E4DFD5] bg-white px-6 py-8 text-center text-sm text-[#57534E]';
+              historyContainer.textContent = 'لا توجد مقالات في السجل بعد. أدخل رابط مقالة علمية في الأعلى لبدء البحث.';
+              clearHistoryBtn.classList.add('hidden');
+              clearHistoryBtn.classList.remove('inline-flex');
+              return;
+            }
+            clearHistoryBtn.classList.remove('hidden');
+            clearHistoryBtn.classList.add('inline-flex');
+            historyContainer.className = 'rounded-xl border border-[#E4DFD5] bg-white divide-y divide-[#F0ECE3] text-right';
+
+            items.forEach(function (item) {
+              var row = el('div', 'flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-5 py-4');
+              var left = el('div', 'min-w-0 flex-1');
+              var meta = el('div', 'flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[#57534E] mb-1');
+              meta.appendChild(el('span', item.available ? 'font-medium text-[#15803D]' : 'font-medium text-[#9A3412]', item.available ? 'متوفرة' : 'تحقق يدوي'));
+              meta.appendChild(el('span', '', '·'));
+              var doiSpan = el('span', 'font-mono text-[#1C1917]', item.doi);
+              doiSpan.setAttribute('dir', 'ltr');
+              meta.appendChild(doiSpan);
+              left.appendChild(meta);
+
+              var titleP = el('p', 'text-sm font-semibold text-[#1C1917] truncate', item.title || item.doi);
+              titleP.setAttribute('dir', 'auto');
+              left.appendChild(titleP);
+
+              var actions = el('div', 'flex items-center gap-2 shrink-0');
+              var reBtn = el('button', 'min-h-[38px] rounded-lg border border-[#D6CEBE] bg-[#FBF9F5] px-3 py-1.5 text-xs font-medium text-[#1C1917] hover:bg-[#EBE6DF] cursor-pointer', 'إعادة الفحص');
+              reBtn.type = 'button';
+              reBtn.addEventListener('click', function () {
+                inputEl.value = item.input;
+                runLookup(item.input);
+              });
+              var boxLink = el('a', 'min-h-[38px] inline-flex items-center rounded-lg bg-[#1E3A8A] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#172E6E]', 'sci-hub.box');
+              boxLink.href = 'https://sci-hub.box/' + encodeURI(item.doi);
+              boxLink.target = '_blank';
+              boxLink.rel = 'noopener noreferrer';
+
+              actions.appendChild(reBtn);
+              actions.appendChild(boxLink);
+              row.appendChild(left);
+              row.appendChild(actions);
+              historyContainer.appendChild(row);
+            });
+          }
+
+          async function resolveDoiClientSide(rawInput) {
+            var direct = cleanDoi(rawInput);
+            if (direct && (/^(?:doi:\s*)?10\./i.test(rawInput) || /doi\.org\//i.test(rawInput))) {
+              return { doi: direct, source: 'معرّف DOI مباشر' };
+            }
+
+            var urlStr = /^https?:\/\//i.test(rawInput) ? rawInput : 'https://' + rawInput;
+            var u;
+            try {
+              u = new URL(urlStr);
+            } catch (e) {
+              return { doi: null, source: null };
+            }
+
+            // Query params or path DOI
+            var fromUrl = cleanDoi(u.search + u.pathname);
+            if (fromUrl) return { doi: fromUrl, source: 'رابط المقالة مباشرة' };
+
+            var host = u.hostname.toLowerCase();
+
+            // arXiv
+            if (host.indexOf('arxiv.org') !== -1) {
+              var arx = u.pathname.match(/\/(?:abs|pdf|html)\/(\d{4}\.\d{4,5}|[a-z-]+\/\d{7})/i);
+              if (arx) return { doi: '10.48550/arXiv.' + arx[1], source: 'رابط arXiv' };
+            }
+
+            // Nature
+            if (host.indexOf('nature.com') !== -1) {
+              var nat = u.pathname.match(/\/articles\/([A-Za-z0-9._-]+)/);
+              if (nat) return { doi: '10.1038/' + nat[1], source: 'معرّف Nature' };
+            }
+
+            // PubMed
+            if (host.indexOf('pubmed.ncbi.nlm.nih.gov') !== -1) {
+              var pm = u.pathname.match(/\/(\d{5,10})\/?/);
+              if (pm) {
+                var pmRes = await fetch('https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=' + pm[1] + '&retmode=json');
+                if (pmRes.ok) {
+                  var pmData = await pmRes.json();
+                  var ids = pmData && pmData.result && pmData.result[pm[1]] && pmData.result[pm[1]].articleids;
+                  if (Array.isArray(ids)) {
+                    var found = ids.find(function (x) { return x.idtype === 'doi'; });
+                    if (found && found.value) return { doi: cleanDoi(found.value), source: 'PubMed API' };
+                  }
+                }
+              }
+            }
+
+            // ScienceDirect / Cell PII via Crossref
+            if (host.indexOf('sciencedirect.com') !== -1 || host.indexOf('cell.com') !== -1) {
+              var pii = u.pathname.match(/\/(?:pii|fulltext)\/([A-Z0-9]{10,25})/i);
+              if (pii) {
+                var crPii = await fetch('https://api.crossref.org/works?filter=alternative-id:' + encodeURIComponent(pii[1].toUpperCase()) + '&rows=1');
+                if (crPii.ok) {
+                  var crJson = await crPii.json();
+                  var item = crJson && crJson.message && crJson.message.items && crJson.message.items[0];
+                  if (item && item.DOI) return { doi: item.DOI, source: 'Crossref PII' };
+                }
+              }
+            }
+
+            return { doi: null, source: null };
+          }
+
+          async function fetchCrossrefAndOpenAlex(doi) {
+            var meta = { title: null, authors: [], journal: null, year: null, pdfUrl: null };
+            try {
+              var cr = await fetch('https://api.crossref.org/works/' + encodeURIComponent(doi));
+              if (cr.ok) {
+                var d = await cr.json();
+                var m = d.message || {};
+                if (Array.isArray(m.title) && m.title[0]) meta.title = String(m.title[0]).replace(/<[^>]+>/g, '');
+                if (Array.isArray(m['container-title']) && m['container-title'][0]) meta.journal = String(m['container-title'][0]);
+                var yp = (m.published && m.published['date-parts'] && m.published['date-parts'][0]) || null;
+                if (yp && yp[0]) meta.year = String(yp[0]);
+                if (Array.isArray(m.author)) {
+                  meta.authors = m.author.slice(0, 6).map(function (a) { return [a.given, a.family].filter(Boolean).join(' '); }).filter(Boolean);
+                }
+              }
+            } catch (e) {}
+
+            try {
+              var oa = await fetch('https://api.openalex.org/works/https://doi.org/' + encodeURIComponent(doi));
+              if (oa.ok) {
+                var o = await oa.json();
+                if (!meta.title && o.title) meta.title = o.title;
+                if (!meta.year && o.publication_year) meta.year = String(o.publication_year);
+                var oaPdf = (o.best_oa_location && o.best_oa_location.pdf_url) || (o.primary_location && o.primary_location.pdf_url) || null;
+                if (oaPdf && typeof oaPdf === 'string' && oaPdf.indexOf('http') === 0 && oaPdf.toLowerCase().indexOf('.html') === -1) {
+                  meta.pdfUrl = oaPdf;
+                }
+              }
+            } catch (e) {}
+
+            if (/^10\.48550\/arXiv\./i.test(doi)) {
+              meta.pdfUrl = 'https://arxiv.org/pdf/' + doi.replace(/^10\.48550\/arXiv\./i, '') + '.pdf';
+            }
+
+            return meta;
+          }
+
+          function renderResultCard(doi, source, meta) {
+            resultSection.classList.remove('hidden');
+            resultSection.innerHTML = '';
+
+            var card = el('div', 'rounded-xl border border-[#E4DFD5] bg-white overflow-hidden');
+            if (!doi) {
+              var errBox = el('div', 'p-6 sm:p-8');
+              errBox.appendChild(el('h2', 'text-base font-bold text-[#9A3412]', 'لم يتم العثور على معرّف DOI في هذا الرابط'));
+              errBox.appendChild(el('p', 'mt-2 text-sm text-[#57534E]', 'في الوضع الثابت على GitHub Pages يمكنك لصق رابط يحتوي على DOI أو كتابة معرّف DOI مباشرة (مثل 10.1038/nature12373).'));
+              card.appendChild(errBox);
+              resultSection.appendChild(card);
+              return;
+            }
+
+            var sciHubUrl = 'https://sci-hub.box/' + encodeURI(doi);
+            var headerBar = el('div', 'flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-5 border-b border-[#E4DFD5] bg-[#F0FDF4]/60');
+            var info = el('div', '');
+            info.appendChild(el('h2', 'text-base font-bold text-[#1C1917]', 'تم استخراج معرّف DOI وتجهيز رابط البحث في sci-hub.box'));
+            info.appendChild(el('p', 'mt-1 text-sm text-[#57534E]', meta.pdfUrl ? 'تتوفر نسخة PDF مباشرة بالإضافة إلى صفحة المقالة في sci-hub.box.' : 'اضغط على زر التحميل لفتح المقالة وتحميل ملف PDF من sci-hub.box.'));
+
+            var btnGroup = el('div', 'flex flex-wrap items-center gap-2.5 shrink-0');
+            if (meta.pdfUrl) {
+              var dlLink = el('a', 'inline-flex min-h-[44px] items-center justify-center rounded-lg bg-[#15803D] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#166534] whitespace-nowrap', 'تحميل ملف PDF');
+              dlLink.href = meta.pdfUrl;
+              dlLink.target = '_blank';
+              dlLink.rel = 'noopener noreferrer';
+              btnGroup.appendChild(dlLink);
+            }
+
+            var boxBtn = el('a', 'inline-flex min-h-[44px] items-center justify-center rounded-lg bg-[#1E3A8A] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#172E6E] whitespace-nowrap', meta.pdfUrl ? 'فتح في sci-hub.box' : 'تحميل PDF عبر sci-hub.box');
+            boxBtn.href = sciHubUrl;
+            boxBtn.target = '_blank';
+            boxBtn.rel = 'noopener noreferrer';
+            btnGroup.appendChild(boxBtn);
+
+            headerBar.appendChild(info);
+            headerBar.appendChild(btnGroup);
+            card.appendChild(headerBar);
+
+            var body = el('div', 'p-6 sm:p-8');
+            if (meta.journal || meta.year || source) {
+              body.appendChild(el('p', 'text-xs text-[#57534E] mb-2', [meta.journal, meta.year, source ? 'المصدر: ' + source : null].filter(Boolean).join(' · ')));
+            }
+            var titleEl = el('h3', 'font-serif text-2xl font-bold text-[#1C1917] mb-2', meta.title || doi);
+            titleEl.setAttribute('dir', 'auto');
+            body.appendChild(titleEl);
+
+            if (meta.authors && meta.authors.length) {
+              var authEl = el('p', 'text-sm text-[#57534E] mb-4', meta.authors.join(' · '));
+              authEl.setAttribute('dir', 'auto');
+              body.appendChild(authEl);
+            }
+
+            var doiBox = el('div', 'pt-4 border-t border-[#F0ECE3] flex flex-wrap items-center justify-between gap-2 text-sm');
+            doiBox.appendChild(el('span', 'font-medium text-[#57534E]', 'معرّف DOI المستخرج'));
+            var doiCode = el('span', 'font-mono text-[#1C1917] font-medium', doi);
+            doiCode.setAttribute('dir', 'ltr');
+            doiBox.appendChild(doiCode);
+            body.appendChild(doiBox);
+
+            card.appendChild(body);
+            resultSection.appendChild(card);
+          }
+
+          async function runLookup(overrideVal) {
+            var q = (overrideVal !== undefined ? overrideVal : inputEl.value).trim();
+            if (!q) return;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'جارٍ البحث...';
+            resultSection.classList.remove('hidden');
+            resultSection.innerHTML = '';
+            resultSection.appendChild(el('div', 'rounded-xl border border-[#E4DFD5] bg-white p-6 text-sm text-[#57534E]', 'جارٍ استخراج معرّف DOI والتحقق من البيانات...'));
+
+            try {
+              var resolved = await resolveDoiClientSide(q);
+              if (!resolved.doi) {
+                renderResultCard(null, null, {});
+              } else {
+                var meta = await fetchCrossrefAndOpenAlex(resolved.doi);
+                renderResultCard(resolved.doi, resolved.source, meta);
+                var prev = loadHistory().filter(function (x) { return x.doi !== resolved.doi; });
+                var next = [{
+                  id: resolved.doi + '-' + Date.now(),
+                  input: q,
+                  doi: resolved.doi,
+                  title: meta.title,
+                  available: Boolean(meta.pdfUrl),
+                  sciHubBoxUrl: 'https://sci-hub.box/' + resolved.doi
+                }].concat(prev).slice(0, 10);
+                try { localStorage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch (e) {}
+                renderHistory();
+              }
+            } finally {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'استخراج DOI والبحث';
+            }
+          }
+
+          if (form) {
+            form.addEventListener('submit', function (e) {
+              e.preventDefault();
+              runLookup();
+            });
+          }
+          if (pasteBtn) {
+            pasteBtn.addEventListener('click', async function () {
+              try {
+                var text = await navigator.clipboard.readText();
+                if (text) inputEl.value = text.trim();
+              } catch (e) {}
+              inputEl.focus();
+            });
+          }
+          if (newSearchBtn) {
+            newSearchBtn.addEventListener('click', function () {
+              inputEl.value = '';
+              resultSection.classList.add('hidden');
+              inputEl.focus();
+            });
+          }
+          if (clearHistoryBtn) {
+            clearHistoryBtn.addEventListener('click', function () {
+              try { localStorage.removeItem(HISTORY_KEY); } catch (e) {}
+              renderHistory();
+            });
+          }
+          document.querySelectorAll('.gh-example-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+              var u = btn.getAttribute('data-example-url');
+              if (u) {
+                inputEl.value = u;
+                runLookup(u);
+              }
+            });
+          });
+
+        renderHistory();
+      });
+    </script>
   </body>
 </html>
