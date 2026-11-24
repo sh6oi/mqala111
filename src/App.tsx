@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { SearchForm, type SearchMode } from './components/SearchForm.tsx';
+import { TopicSearchResults } from './components/TopicSearchResults.tsx';
 import { ResultPanel } from './components/ResultPanel.tsx';
 import { BatchResultsPanel } from './components/BatchResultsPanel.tsx';
 import { HistorySection } from './components/HistorySection.tsx';
 import { WorkflowSection } from './components/WorkflowSection.tsx';
-import type { BatchItemResult, HistoryItem, LookupResponse } from './types.ts';
+import type {
+  ArticlePdfCheckResponse,
+  ArticleSearchResponse,
+  BatchItemResult,
+  HistoryItem,
+  LookupResponse,
+  SearchArticleResult,
+} from './types.ts';
 
 const HISTORY_STORAGE_KEY = 'academic_doi_scihub_history_v1';
 const THEME_STORAGE_KEY = 'academic_doi_theme_v1';
@@ -31,15 +39,18 @@ function loadSavedTheme(): boolean {
 }
 
 export default function App() {
-  const [mode, setMode] = useState<SearchMode>('single');
+  const [mode, setMode] = useState<SearchMode>('topic');
   const [isDark, setIsDark] = useState<boolean>(() => loadSavedTheme());
+  const [topicQuery, setTopicQuery] = useState('');
   const [input, setInput] = useState('');
   const [batchInput, setBatchInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [topicSearchResult, setTopicSearchResult] = useState<ArticleSearchResponse | null>(null);
   const [result, setResult] = useState<LookupResponse | null>(null);
   const [batchResults, setBatchResults] = useState<BatchItemResult[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>(() => loadSavedHistory());
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const topicInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -83,6 +94,43 @@ export default function App() {
       const filtered = prev.filter((item) => item.doi !== data.doi);
       return [nextItem, ...filtered].slice(0, MAX_HISTORY_ITEMS);
     });
+  };
+
+  const handleSearchTopic = async (overrideQuery?: string) => {
+    const q = (overrideQuery ?? topicQuery).trim();
+    if (!q || isLoading) return;
+
+    // If user pasted a direct URL or DOI into the topic box, seamlessly route to URL/DOI lookup
+    if (/^https?:\/\//i.test(q) || /^(?:doi:\s*)?10\.\d{4,9}\//i.test(q)) {
+      setInput(q);
+      await handleLookupSingle(q);
+      return;
+    }
+
+    setMode('topic');
+    setIsLoading(true);
+    setTopicSearchResult(null);
+
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q }),
+      });
+      const data: ArticleSearchResponse = await res.json();
+      setTopicSearchResult(data);
+    } catch {
+      setTopicSearchResult({
+        success: false,
+        query: q,
+        enginesSearched: [],
+        totalResults: 0,
+        articles: [],
+        error: 'تعذّر الاتصال بمحركات البحث العلمية حالياً. يرجى المحاولة مرة أخرى.',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLookupSingle = async (overrideInput?: string) => {
@@ -166,12 +214,66 @@ export default function App() {
     setIsLoading(false);
   };
 
+  const handleRecordDownloadAttempt = (
+    article: SearchArticleResult,
+    pdfStatus: ArticlePdfCheckResponse
+  ) => {
+    const effectiveDoi = pdfStatus.doi ?? article.doi;
+    if (!effectiveDoi) return;
+    setHistory((prev) => {
+      const existing = prev.find((item) => item.doi === effectiveDoi);
+      const nextItem: HistoryItem = {
+        id: `${effectiveDoi}-${Date.now()}`,
+        input: article.articleUrl || effectiveDoi,
+        doi: effectiveDoi,
+        title: article.title,
+        journal: article.venue,
+        year: article.year,
+        available: pdfStatus.available,
+        pdfUrl: pdfStatus.pdfUrl,
+        sciHubBoxUrl: pdfStatus.sciHubBoxUrl ?? `https://sci-hub.box/${effectiveDoi}`,
+        checkedAt: new Date().toISOString(),
+        bookmarked: existing?.bookmarked ?? false,
+      };
+      const filtered = prev.filter((item) => item.doi !== effectiveDoi);
+      return [nextItem, ...filtered].slice(0, MAX_HISTORY_ITEMS);
+    });
+  };
+
+  const handleToggleArticleBookmark = (article: SearchArticleResult) => {
+    if (!article.doi) return;
+    setHistory((prev) => {
+      const exists = prev.find((item) => item.doi === article.doi);
+      if (exists) {
+        return prev.map((item) =>
+          item.doi === article.doi ? { ...item, bookmarked: !item.bookmarked } : item
+        );
+      }
+      const nextItem: HistoryItem = {
+        id: `${article.doi}-${Date.now()}`,
+        input: article.articleUrl || article.doi!,
+        doi: article.doi!,
+        title: article.title,
+        journal: article.venue,
+        year: article.year,
+        available: Boolean(article.openAccessPdfUrl),
+        pdfUrl: article.openAccessPdfUrl,
+        sciHubBoxUrl: `https://sci-hub.box/${article.doi}`,
+        checkedAt: new Date().toISOString(),
+        bookmarked: true,
+      };
+      return [nextItem, ...prev].slice(0, MAX_HISTORY_ITEMS);
+    });
+  };
+
   const handleNewSearch = () => {
-    setMode('single');
+    setMode('topic');
+    setTopicQuery('');
     setInput('');
+    setTopicSearchResult(null);
     setResult(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setTimeout(() => inputRef.current?.focus(), 150);
+    setTimeout(() => topicInputRef.current?.focus(), 150);
   };
 
   const handleReSearch = (savedInput: string) => {
@@ -192,8 +294,12 @@ export default function App() {
     setHistory([]);
   };
 
+  const bookmarkedDois = new Set(
+    history.filter((item) => item.bookmarked).map((item) => item.doi)
+  );
+
   const currentIsBookmarked = Boolean(
-    result?.doi && history.some((item) => item.doi === result.doi && item.bookmarked)
+    result?.doi && bookmarkedDois.has(result.doi)
   );
 
   const stats = {
@@ -212,18 +318,30 @@ export default function App() {
           onModeChange={setMode}
           isDark={isDark}
           onToggleTheme={() => setIsDark((prev) => !prev)}
+          topicQuery={topicQuery}
+          onTopicQueryChange={setTopicQuery}
           input={input}
           onInputChange={setInput}
           batchInput={batchInput}
           onBatchInputChange={setBatchInput}
+          onSubmitTopic={handleSearchTopic}
           onSubmitSingle={handleLookupSingle}
           onSubmitBatch={handleLookupBatch}
           isLoading={isLoading}
           inputRef={inputRef}
+          topicInputRef={topicInputRef}
           stats={stats}
         />
 
-        {mode === 'single' ? (
+        {mode === 'topic' ? (
+          <TopicSearchResults
+            isLoading={isLoading}
+            searchResult={topicSearchResult}
+            bookmarkedDois={bookmarkedDois}
+            onToggleBookmark={handleToggleArticleBookmark}
+            onRecordDownloadAttempt={handleRecordDownloadAttempt}
+          />
+        ) : mode === 'single' ? (
           <ResultPanel
             isLoading={isLoading}
             result={result}
@@ -246,7 +364,7 @@ export default function App() {
 
       <footer className="border-t border-[#E2E8F0] dark:border-[#1F2737] bg-[#F8FAFC] dark:bg-[#090B10] py-6 px-6 transition-colors">
         <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#64748B] dark:text-[#94A3B8]">
-          <span>المستكشف الأكاديمي · أداة استخراج DOI والبحث عبر sci-hub.box</span>
+          <span>المستكشف الأكاديمي · بحث المقالات العلمية والتحميل عبر sci-hub.box</span>
           <a
             href="https://sci-hub.box/"
             target="_blank"

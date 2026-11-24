@@ -5,7 +5,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import * as cheerio from 'cheerio';
-import type { ArticleMetadata, LookupResponse, SciHubRecord } from './src/types.ts';
+import type {
+  ArticleMetadata,
+  ArticlePdfCheckResponse,
+  ArticleSearchResponse,
+  LookupResponse,
+  SciHubRecord,
+  SearchArticleResult,
+} from './src/types.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -750,6 +757,29 @@ function parseSciHubPage(html: string, baseOrigin: string, doi: string): {
   };
 }
 
+async function verifyPdfStream(rawUrl: string): Promise<boolean> {
+  try {
+    const { response } = await safeFetch(rawUrl, {
+      headers: {
+        Accept: 'application/pdf,application/octet-stream;q=0.9,*/*;q=0.8',
+        Referer: 'https://sci-hub.box/',
+      },
+      timeoutMs: 8000,
+    });
+    if (!response.ok) return false;
+    const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
+    const reader = response.body?.getReader();
+    if (!reader) return contentType.includes('application/pdf');
+    const { value } = await reader.read();
+    await reader.cancel().catch(() => {});
+    if (!value || value.byteLength < 5) return false;
+    const magic = Buffer.from(value.subarray(0, 5)).toString('ascii');
+    return magic === '%PDF-';
+  } catch {
+    return false;
+  }
+}
+
 async function searchSciHub(doi: string, openAccessFallback: string | null): Promise<{
   record: SciHubRecord;
   extraMeta: Partial<ArticleMetadata>;
@@ -758,10 +788,19 @@ async function searchSciHub(doi: string, openAccessFallback: string | null): Pro
   const sciHubBoxUrl = `${sciHubBoxBase}/${doi}`;
   const extraMeta: Partial<ArticleMetadata> = {};
   let challengeDetected = false;
+  const candidateSet = new Set<string>();
+
+  const addCandidate = (u: string | null | undefined) => {
+    if (!u || typeof u !== 'string') return;
+    const trimmed = u.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      candidateSet.add(trimmed);
+    }
+  };
 
   // 1. Primary search on https://sci-hub.box/
   try {
-    const { response } = await safeFetch(`${sciHubBoxBase}/${encodeURI(doi)}`, { timeoutMs: 8000 });
+    const { response } = await safeFetch(`${sciHubBoxBase}/${encodeURI(doi)}`, { timeoutMs: 7000 });
     const html = await readTextLimited(response);
     if (html.includes('DDoS-Guard') || response.status === 403) {
       challengeDetected = true;
@@ -772,13 +811,18 @@ async function searchSciHub(doi: string, openAccessFallback: string | null): Pro
       if (parsed.citation) extraMeta.citation = parsed.citation;
 
       if (parsed.found) {
+        addCandidate(parsed.pdfUrl);
+        addCandidate(parsed.openAccessPdfUrl);
+        addCandidate(openAccessFallback);
+        const pdfCandidates = Array.from(candidateSet);
         return {
           record: {
             available: true,
             checkedSource: 'sci-hub.box',
             sciHubBoxUrl,
             sciHubBoxChallengeDetected: false,
-            pdfUrl: parsed.pdfUrl ?? openAccessFallback,
+            pdfUrl: pdfCandidates[0] ?? null,
+            pdfCandidates,
             openAccessPdfUrl: parsed.openAccessPdfUrl ?? openAccessFallback,
             fileSize: parsed.fileSize,
             sha256: parsed.sha256,
@@ -793,10 +837,10 @@ async function searchSciHub(doi: string, openAccessFallback: string | null): Pro
     challengeDetected = true;
   }
 
-  // 2. Fallback check across official Sci-Hub mirrors when sci-hub.box enforces DDoS-Guard JS check
-  const mirrors = ['https://sci-hub.ru', 'https://sci-hub.st', 'https://sci-hub.ren'];
+  // 2. Fallback check across official Sci-Hub mirrors (prioritizing direct PDF embed mirrors first)
+  const mirrors = ['https://sci-hub.ren', 'https://sci-hub.vg', 'https://sci-hub.ru', 'https://sci-hub.st'];
   let foundInArchive = false;
-  let archivePdfUrl: string | null = null;
+  let archiveDirectPdf: string | null = null;
   let archiveOpenAccess: string | null = null;
   let archiveSize: string | null = null;
   let archiveSha256: string | null = null;
@@ -804,14 +848,13 @@ async function searchSciHub(doi: string, openAccessFallback: string | null): Pro
 
   for (const mirror of mirrors) {
     try {
-      const { response } = await safeFetch(`${mirror}/${encodeURI(doi)}`, { timeoutMs: 7000 });
-      // Self-redirect loop (302) means DOI is not in Sci-Hub index
+      const { response } = await safeFetch(`${mirror}/${encodeURI(doi)}`, { timeoutMs: 6500 });
       if (response.status >= 300 && response.status < 400) {
         continue;
       }
       if (!response.ok) continue;
       const html = await readTextLimited(response);
-      if (html.includes('DDoS-Guard') || html.includes('challenges.cloudflare.com')) {
+      if (html.includes('DDoS-Guard') || html.includes('challenges.cloudflare.com') || html.includes('<title>Verification')) {
         continue;
       }
 
@@ -822,14 +865,19 @@ async function searchSciHub(doi: string, openAccessFallback: string | null): Pro
 
       if (parsed.found) {
         foundInArchive = true;
-        if (parsed.pdfUrl && !archivePdfUrl) archivePdfUrl = parsed.pdfUrl;
-        if (parsed.openAccessPdfUrl && !archiveOpenAccess) archiveOpenAccess = parsed.openAccessPdfUrl;
+        if (parsed.pdfUrl && parsed.pdfUrl !== parsed.openAccessPdfUrl) {
+          addCandidate(parsed.pdfUrl);
+          if (!archiveDirectPdf) archiveDirectPdf = parsed.pdfUrl;
+        }
+        if (parsed.openAccessPdfUrl && !archiveOpenAccess) {
+          archiveOpenAccess = parsed.openAccessPdfUrl;
+        }
         if (parsed.fileSize && !archiveSize) archiveSize = parsed.fileSize;
         if (parsed.sha256 && !archiveSha256) archiveSha256 = parsed.sha256;
         if (parsed.md5 && !archiveMd5) archiveMd5 = parsed.md5;
 
-        // If we already got a direct .pdf URL (e.g., from sci-hub.ren embed), we can stop early
-        if (archivePdfUrl && archivePdfUrl.toLowerCase().includes('.pdf')) {
+        // Break early only when we got a genuine Sci-Hub storage/embed PDF URL
+        if (archiveDirectPdf && (archiveDirectPdf.includes('sci.bban.top') || archiveDirectPdf.includes('/downloads/') || archiveDirectPdf.includes('/storage/'))) {
           break;
         }
       }
@@ -838,7 +886,14 @@ async function searchSciHub(doi: string, openAccessFallback: string | null): Pro
     }
   }
 
-  const bestPdf = archivePdfUrl ?? archiveOpenAccess ?? openAccessFallback;
+  if (foundInArchive) {
+    addCandidate(`https://sci.bban.top/pdf/${encodeURI(doi)}.pdf?download=true`);
+    addCandidate(archiveOpenAccess);
+  }
+  addCandidate(openAccessFallback);
+
+  const pdfCandidates = Array.from(candidateSet);
+  const bestPdf = archiveDirectPdf ?? pdfCandidates[0] ?? null;
 
   if (foundInArchive) {
     return {
@@ -848,11 +903,12 @@ async function searchSciHub(doi: string, openAccessFallback: string | null): Pro
         sciHubBoxUrl,
         sciHubBoxChallengeDetected: challengeDetected,
         pdfUrl: bestPdf,
+        pdfCandidates,
         openAccessPdfUrl: archiveOpenAccess ?? openAccessFallback,
         fileSize: archiveSize,
         sha256: archiveSha256,
         md5: archiveMd5,
-        message: 'المقالة متوفرة ومفهرسة في أرشيف Sci-Hub. يمكنك تحميل ملف PDF أو فتحها عبر sci-hub.box.',
+        message: 'المقالة متوفرة ومفهرسة في أرشيف Sci-Hub. يمكنك تحميل ملف PDF الآن.',
       },
       extraMeta,
     };
@@ -866,11 +922,12 @@ async function searchSciHub(doi: string, openAccessFallback: string | null): Pro
         sciHubBoxUrl,
         sciHubBoxChallengeDetected: challengeDetected,
         pdfUrl: openAccessFallback,
+        pdfCandidates,
         openAccessPdfUrl: openAccessFallback,
         fileSize: null,
         sha256: null,
         md5: null,
-        message: 'لم تُفهرس المقالة في Sci-Hub ولكن تتوفر نسخة مجانية مفتوحة الوصول (Open Access) بصيغة PDF.',
+        message: 'تتوفر نسخة مجانية مفتوحة الوصول (Open Access) بصيغة PDF.',
       },
       extraMeta,
     };
@@ -883,21 +940,556 @@ async function searchSciHub(doi: string, openAccessFallback: string | null): Pro
       sciHubBoxUrl,
       sciHubBoxChallengeDetected: challengeDetected,
       pdfUrl: null,
+      pdfCandidates: [],
       openAccessPdfUrl: null,
       fileSize: null,
       sha256: null,
       md5: null,
-      message: challengeDetected
-        ? 'يفرض موقع sci-hub.box تحقق متصفح (DDoS-Guard) حالياً، ولم يُعثر على نسخة مفهرسة في المرآة الاحتياطية. يمكنك التحقق يدوياً عبر فتح رابط sci-hub.box.'
-        : 'المقالة غير متوفرة حالياً في قاعدة بيانات sci-hub.box.',
+      message: 'هذه المقالة غير موجودة على موقع Sci-Hub بصيغة PDF — المقالة مدفوعة وغير مجانية ولا يمكن تحميلها.',
     },
     extraMeta,
+  };
+}
+
+const STOPWORDS = new Set([
+  'the', 'a', 'an', 'of', 'in', 'on', 'for', 'and', 'or', 'to', 'with', 'by', 'from', 'as', 'at', 'is', 'are', 'using', 'based', 'via',
+  'في', 'من', 'على', 'إلى', 'عن', 'مع', 'أو', 'و', 'ال', 'بين', 'حول', 'دراسة', 'بحث',
+]);
+
+function normalizeTextTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 2 && !STOPWORDS.has(t));
+}
+
+function computeTitleSimilarity(query: string, candidateTitle: string): number {
+  const qNorm = query.toLowerCase().replace(/\s+/g, ' ').trim();
+  const tNorm = candidateTitle.toLowerCase().replace(/\s+/g, ' ').trim();
+  if (!qNorm || !tNorm) return 0;
+  if (qNorm === tNorm) return 100;
+
+  const qTokens = normalizeTextTokens(qNorm);
+  const tTokens = normalizeTextTokens(tNorm);
+  if (qTokens.length === 0 || tTokens.length === 0) return 15;
+
+  let matchedWeight = 0;
+  for (const qt of qTokens) {
+    if (tTokens.includes(qt)) {
+      matchedWeight += 1;
+    } else if (
+      qt.length >= 4 &&
+      tTokens.some((tt) => tt.startsWith(qt.slice(0, 4)) || qt.startsWith(tt.slice(0, 4)))
+    ) {
+      matchedWeight += 0.65;
+    }
+  }
+
+  const recall = matchedWeight / qTokens.length;
+  const precision = matchedWeight / Math.max(tTokens.length, qTokens.length);
+  const phraseBonus = tNorm.includes(qNorm) || qNorm.includes(tNorm) ? 0.15 : 0;
+
+  const rawScore = (recall * 0.65 + precision * 0.25 + phraseBonus) * 100;
+  return Math.min(99, Math.max(12, Math.round(rawScore)));
+}
+
+async function searchOpenAlex(query: string): Promise<SearchArticleResult[]> {
+  const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=12&sort=relevance_score:desc`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
+    signal: AbortSignal.timeout(6500),
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const results = Array.isArray(data?.results) ? data.results : [];
+
+  return results
+    .filter((w: { title?: string }) => Boolean(w?.title))
+    .map((w: {
+      id?: string;
+      doi?: string;
+      title?: string;
+      publication_date?: string;
+      publication_year?: number;
+      cited_by_count?: number;
+      authorships?: Array<{ author?: { display_name?: string } }>;
+      primary_location?: { landing_page_url?: string; pdf_url?: string; source?: { display_name?: string } };
+      best_oa_location?: { pdf_url?: string; landing_page_url?: string };
+    }) => {
+      const doi = w.doi ? cleanDoi(String(w.doi)) : null;
+      const landing =
+        w.primary_location?.landing_page_url ??
+        w.best_oa_location?.landing_page_url ??
+        (doi ? `https://doi.org/${doi}` : w.id ?? '');
+      const oaPdf = w.best_oa_location?.pdf_url ?? w.primary_location?.pdf_url ?? null;
+      const title = String(w.title).replace(/<[^>]+>/g, '').trim();
+
+      return {
+        id: `oa-${doi ?? w.id ?? title}`,
+        title,
+        authors: Array.isArray(w.authorships)
+          ? w.authorships.slice(0, 5).map((a) => a.author?.display_name ?? '').filter(Boolean)
+          : [],
+        publishedDate: w.publication_date ? String(w.publication_date) : w.publication_year ? String(w.publication_year) : null,
+        year: w.publication_year ? String(w.publication_year) : null,
+        articleUrl: String(landing),
+        doi,
+        sourceEngine: 'OpenAlex',
+        venue: w.primary_location?.source?.display_name ? String(w.primary_location.source.display_name) : null,
+        citedByCount: typeof w.cited_by_count === 'number' ? w.cited_by_count : null,
+        abstract: null,
+        openAccessPdfUrl: typeof oaPdf === 'string' && oaPdf.startsWith('http') && !oaPdf.endsWith('.html') ? oaPdf : null,
+        similarityScore: computeTitleSimilarity(query, title),
+      } satisfies SearchArticleResult;
+    });
+}
+
+async function searchCrossref(query: string): Promise<SearchArticleResult[]> {
+  const url = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=12&sort=relevance`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
+    signal: AbortSignal.timeout(6500),
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const items = Array.isArray(data?.message?.items) ? data.message.items : [];
+
+  return items
+    .filter((m: { title?: string[] }) => Array.isArray(m?.title) && Boolean(m.title[0]))
+    .map((m: {
+      DOI?: string;
+      URL?: string;
+      title?: string[];
+      author?: Array<{ given?: string; family?: string; name?: string }>;
+      'container-title'?: string[];
+      publisher?: string;
+      published?: { 'date-parts'?: number[][] };
+      'published-print'?: { 'date-parts'?: number[][] };
+      'published-online'?: { 'date-parts'?: number[][] };
+      'is-referenced-by-count'?: number;
+      abstract?: string;
+      link?: Array<{ 'content-type'?: string; URL?: string }>;
+    }) => {
+      const doi = m.DOI ? cleanDoi(String(m.DOI)) : null;
+      const title = String(m.title![0]).replace(/<[^>]+>/g, '').trim();
+      const parts =
+        m.published?.['date-parts']?.[0] ??
+        m['published-online']?.['date-parts']?.[0] ??
+        m['published-print']?.['date-parts']?.[0];
+      const publishedDate = Array.isArray(parts) && parts.length > 0
+        ? parts.map((n, idx) => (idx === 0 ? String(n) : String(n).padStart(2, '0'))).join('-')
+        : null;
+      const year = Array.isArray(parts) && parts[0] ? String(parts[0]) : null;
+      const pdfLink = Array.isArray(m.link)
+        ? m.link.find((l) => l['content-type'] === 'application/pdf' && typeof l.URL === 'string')?.URL ?? null
+        : null;
+
+      return {
+        id: `cr-${doi ?? title}`,
+        title,
+        authors: Array.isArray(m.author)
+          ? m.author
+              .slice(0, 5)
+              .map((a) => [a.given, a.family].filter(Boolean).join(' ') || a.name || '')
+              .filter(Boolean)
+          : [],
+        publishedDate,
+        year,
+        articleUrl: m.URL ? String(m.URL) : doi ? `https://doi.org/${doi}` : '',
+        doi,
+        sourceEngine: 'Crossref',
+        venue: Array.isArray(m['container-title']) && m['container-title'][0]
+          ? String(m['container-title'][0])
+          : m.publisher ?? null,
+        citedByCount: typeof m['is-referenced-by-count'] === 'number' ? m['is-referenced-by-count'] : null,
+        abstract: m.abstract ? String(m.abstract).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : null,
+        openAccessPdfUrl: pdfLink,
+        similarityScore: computeTitleSimilarity(query, title),
+      } satisfies SearchArticleResult;
+    });
+}
+
+async function searchEuropePmc(query: string): Promise<SearchArticleResult[]> {
+  const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(query)}&resultType=lite&pageSize=10&format=json`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
+    signal: AbortSignal.timeout(6500),
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const list = Array.isArray(data?.resultList?.result) ? data.resultList.result : [];
+
+  return list
+    .filter((item: { title?: string }) => Boolean(item?.title))
+    .map((item: {
+      id?: string;
+      source?: string;
+      pmid?: string;
+      pmcid?: string;
+      doi?: string;
+      title?: string;
+      authorString?: string;
+      journalTitle?: string;
+      pubYear?: string;
+      firstPublicationDate?: string;
+      citedByCount?: number;
+      isOpenAccess?: string;
+    }) => {
+      const doi = item.doi ? cleanDoi(String(item.doi)) : null;
+      const title = String(item.title).replace(/<[^>]+>/g, '').trim();
+      const articleUrl = doi
+        ? `https://doi.org/${doi}`
+        : item.pmcid
+        ? `https://europepmc.org/article/PMC/${item.pmcid}`
+        : item.pmid
+        ? `https://pubmed.ncbi.nlm.nih.gov/${item.pmid}/`
+        : `https://europepmc.org/article/${item.source ?? 'MED'}/${item.id ?? ''}`;
+
+      return {
+        id: `epmc-${doi ?? item.id ?? title}`,
+        title,
+        authors: item.authorString
+          ? String(item.authorString).split(',').map((s) => s.trim()).filter(Boolean).slice(0, 5)
+          : [],
+        publishedDate: item.firstPublicationDate ? String(item.firstPublicationDate) : item.pubYear ?? null,
+        year: item.pubYear ? String(item.pubYear) : null,
+        articleUrl,
+        doi,
+        sourceEngine: 'Europe PMC',
+        venue: item.journalTitle ? String(item.journalTitle) : null,
+        citedByCount: typeof item.citedByCount === 'number' ? item.citedByCount : null,
+        abstract: null,
+        openAccessPdfUrl:
+          item.pmcid && item.isOpenAccess === 'Y'
+            ? `https://europepmc.org/backend/ptpmcrender.fcgi?accid=${item.pmcid}&blobtype=pdf`
+            : null,
+        similarityScore: computeTitleSimilarity(query, title),
+      } satisfies SearchArticleResult;
+    });
+}
+
+async function searchArxiv(query: string): Promise<SearchArticleResult[]> {
+  const url = `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&start=0&max_results=8`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
+    signal: AbortSignal.timeout(6500),
+  });
+  if (!res.ok) return [];
+  const xml = await res.text();
+  const $ = cheerio.load(xml, { xmlMode: true });
+  const results: SearchArticleResult[] = [];
+
+  $('entry').each((_, el) => {
+    const idUrl = $(el).find('id').first().text().trim();
+    const title = $(el).find('title').first().text().replace(/\s+/g, ' ').trim();
+    const published = $(el).find('published').first().text().trim();
+    const summary = $(el).find('summary').first().text().replace(/\s+/g, ' ').trim();
+    const authors: string[] = [];
+    $(el)
+      .find('author > name')
+      .each((__, a) => {
+        const name = $(a).text().trim();
+        if (name) authors.push(name);
+      });
+
+    if (!title || !idUrl) return;
+    const arxMatch = idUrl.match(/arxiv\.org\/abs\/([^\s?#]+)/i);
+    const arxId = arxMatch ? arxMatch[1].replace(/v\d+$/i, '') : null;
+    const doi = arxId ? `10.48550/arXiv.${arxId}` : null;
+
+    results.push({
+      id: `arxiv-${arxId ?? idUrl}`,
+      title,
+      authors: authors.slice(0, 5),
+      publishedDate: published ? published.slice(0, 10) : null,
+      year: published ? published.slice(0, 4) : null,
+      articleUrl: idUrl,
+      doi,
+      sourceEngine: 'arXiv',
+      venue: 'arXiv Preprint',
+      citedByCount: null,
+      abstract: summary || null,
+      openAccessPdfUrl: arxId ? `https://arxiv.org/pdf/${arxId}.pdf` : null,
+      similarityScore: computeTitleSimilarity(query, title),
+    });
+  });
+
+  return results;
+}
+
+async function searchDoaj(query: string): Promise<SearchArticleResult[]> {
+  const url = `https://doaj.org/api/search/articles/${encodeURIComponent(query)}?pageSize=8`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
+    signal: AbortSignal.timeout(6500),
+  });
+  if (!res.ok) return [];
+  const data = await res.json();
+  const list = Array.isArray(data?.results) ? data.results : [];
+
+  return list
+    .filter((item: { bibjson?: { title?: string } }) => Boolean(item?.bibjson?.title))
+    .map((item: {
+      id?: string;
+      bibjson: {
+        title: string;
+        year?: string;
+        abstract?: string;
+        author?: Array<{ name?: string }>;
+        journal?: { title?: string };
+        identifier?: Array<{ type?: string; id?: string }>;
+        link?: Array<{ type?: string; url?: string; content_type?: string }>;
+      };
+    }) => {
+      const b = item.bibjson;
+      const doiId = Array.isArray(b.identifier)
+        ? b.identifier.find((x) => x.type?.toLowerCase() === 'doi')?.id ?? null
+        : null;
+      const doi = doiId ? cleanDoi(doiId) : null;
+      const fulltextLink = Array.isArray(b.link)
+        ? b.link.find((l) => l.type === 'fulltext')?.url ?? b.link[0]?.url ?? null
+        : null;
+      const title = String(b.title).replace(/<[^>]+>/g, '').trim();
+
+      return {
+        id: `doaj-${doi ?? item.id ?? title}`,
+        title,
+        authors: Array.isArray(b.author) ? b.author.slice(0, 5).map((a) => a.name ?? '').filter(Boolean) : [],
+        publishedDate: b.year ? String(b.year) : null,
+        year: b.year ? String(b.year) : null,
+        articleUrl: fulltextLink ?? (doi ? `https://doi.org/${doi}` : `https://doaj.org/article/${item.id ?? ''}`),
+        doi,
+        sourceEngine: 'DOAJ',
+        venue: b.journal?.title ? String(b.journal.title) : null,
+        citedByCount: null,
+        abstract: b.abstract ? String(b.abstract).trim() : null,
+        openAccessPdfUrl:
+          fulltextLink && fulltextLink.toLowerCase().includes('.pdf') ? fulltextLink : null,
+        similarityScore: computeTitleSimilarity(query, title),
+      } satisfies SearchArticleResult;
+    });
+}
+
+async function searchAllAcademicEngines(query: string): Promise<ArticleSearchResponse> {
+  const engines = [
+    { name: 'OpenAlex', fn: () => searchOpenAlex(query) },
+    { name: 'Crossref', fn: () => searchCrossref(query) },
+    { name: 'Europe PMC', fn: () => searchEuropePmc(query) },
+    { name: 'arXiv', fn: () => searchArxiv(query) },
+    { name: 'DOAJ', fn: () => searchDoaj(query) },
+  ];
+
+  const settled = await Promise.allSettled(engines.map((e) => e.fn()));
+  const enginesSearched: string[] = [];
+  const merged = new Map<string, SearchArticleResult>();
+
+  settled.forEach((outcome, idx) => {
+    const engineName = engines[idx].name;
+    if (outcome.status === 'fulfilled' && outcome.value.length > 0) {
+      enginesSearched.push(engineName);
+      for (const item of outcome.value) {
+        if (!item.articleUrl) continue;
+        const normTitle = item.title.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]+/g, '').slice(0, 80);
+        const dedupKey = item.doi ? `doi:${item.doi.toLowerCase()}` : `title:${normTitle}`;
+
+        const existing = merged.get(dedupKey);
+        if (!existing) {
+          merged.set(dedupKey, item);
+        } else {
+          // Merge richer details (keep higher citation count, exact date, OA pdf, and combine source attribution)
+          const sources = existing.sourceEngine.includes(item.sourceEngine)
+            ? existing.sourceEngine
+            : `${existing.sourceEngine} / ${item.sourceEngine}`;
+          merged.set(dedupKey, {
+            ...existing,
+            sourceEngine: sources,
+            doi: existing.doi ?? item.doi,
+            publishedDate:
+              (existing.publishedDate?.length ?? 0) >= (item.publishedDate?.length ?? 0)
+                ? existing.publishedDate
+                : item.publishedDate,
+            year: existing.year ?? item.year,
+            venue: existing.venue ?? item.venue,
+            authors: existing.authors.length >= item.authors.length ? existing.authors : item.authors,
+            citedByCount:
+              existing.citedByCount !== null && item.citedByCount !== null
+                ? Math.max(existing.citedByCount, item.citedByCount)
+                : existing.citedByCount ?? item.citedByCount,
+            abstract: existing.abstract ?? item.abstract,
+            openAccessPdfUrl: existing.openAccessPdfUrl ?? item.openAccessPdfUrl,
+            similarityScore: Math.max(existing.similarityScore, item.similarityScore),
+          });
+        }
+      }
+    }
+  });
+
+  const sorted = Array.from(merged.values())
+    .sort((a, b) => {
+      // Prioritize closeness to query title, with subtle tie-break on citation count
+      const scoreDiff = b.similarityScore - a.similarityScore;
+      if (Math.abs(scoreDiff) >= 8) return scoreDiff;
+      return (b.citedByCount ?? 0) - (a.citedByCount ?? 0);
+    })
+    .slice(0, 24);
+
+  return {
+    success: true,
+    query,
+    enginesSearched: enginesSearched.length > 0 ? enginesSearched : engines.map((e) => e.name),
+    totalResults: sorted.length,
+    articles: sorted,
   };
 }
 
 async function createServer() {
   const app = express();
   app.use(express.json({ limit: '64kb' }));
+
+  app.post('/api/search', async (req, res) => {
+    const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
+    if (!query || query.length > 500) {
+      res.status(400).json({
+        success: false,
+        query,
+        enginesSearched: [],
+        totalResults: 0,
+        articles: [],
+        error: 'يرجى إدخال عنوان البحث أو كلمات مفتاحية صالحة.',
+      } satisfies ArticleSearchResponse);
+      return;
+    }
+
+    try {
+      const result = await searchAllAcademicEngines(query);
+      res.json(result);
+    } catch {
+      res.status(500).json({
+        success: false,
+        query,
+        enginesSearched: [],
+        totalResults: 0,
+        articles: [],
+        error: 'تعذّر البحث في محركات المقالات العلمية حالياً. يرجى المحاولة مرة أخرى.',
+      } satisfies ArticleSearchResponse);
+    }
+  });
+
+  app.post('/api/article-pdf', async (req, res) => {
+    const rawDoi = typeof req.body?.doi === 'string' ? req.body.doi.trim() : '';
+    const rawUrl = typeof req.body?.articleUrl === 'string' ? req.body.articleUrl.trim() : '';
+    const rawTitle = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+    const rawOaPdf = typeof req.body?.openAccessPdfUrl === 'string' ? req.body.openAccessPdfUrl.trim() : '';
+
+    let doi = rawDoi ? cleanDoi(rawDoi) : null;
+
+    if (!doi && rawUrl) {
+      try {
+        const resolved = await resolveDoiFromUrl(rawUrl);
+        if (resolved.doi) doi = resolved.doi;
+      } catch {
+        // ignore
+      }
+    }
+
+    if (!doi && rawTitle && rawTitle.length > 8) {
+      try {
+        const cr = await fetch(
+          `https://api.crossref.org/works?query.title=${encodeURIComponent(rawTitle)}&rows=1`,
+          { signal: AbortSignal.timeout(5000) }
+        );
+        if (cr.ok) {
+          const data = await cr.json();
+          const item = data?.message?.items?.[0];
+          if (item?.DOI) doi = cleanDoi(String(item.DOI));
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    const oaFallback =
+      rawOaPdf && (rawOaPdf.startsWith('http://') || rawOaPdf.startsWith('https://'))
+        ? rawOaPdf
+        : null;
+
+    if (!doi) {
+      if (oaFallback && (await verifyPdfStream(oaFallback))) {
+        res.json({
+          available: true,
+          isPaidRestricted: false,
+          doi: null,
+          pdfUrl: oaFallback,
+          pdfCandidates: [oaFallback],
+          sciHubBoxUrl: null,
+          source: 'open-access',
+          fileSize: null,
+          message: 'تتوفر نسخة مجانية مفتوحة الوصول بصيغة PDF.',
+        } satisfies ArticlePdfCheckResponse);
+        return;
+      }
+
+      res.json({
+        available: false,
+        isPaidRestricted: true,
+        doi: null,
+        pdfUrl: null,
+        pdfCandidates: [],
+        sciHubBoxUrl: null,
+        source: 'none',
+        fileSize: null,
+        message: 'هذه المقالة غير موجودة على موقع Sci-Hub بصيغة PDF — المقالة مدفوعة وغير مجانية ولا يمكن تحميلها.',
+      } satisfies ArticlePdfCheckResponse);
+      return;
+    }
+
+    const { record } = await searchSciHub(doi, oaFallback);
+    const sciHubBoxUrl = `https://sci-hub.box/${encodeURI(doi)}`;
+    const candidates = record.pdfCandidates ?? (record.pdfUrl ? [record.pdfUrl] : []);
+
+    // Verify which candidate actually streams a real %PDF- file
+    let verifiedPdfUrl: string | null = null;
+    for (const candidate of candidates) {
+      if (await verifyPdfStream(candidate)) {
+        verifiedPdfUrl = candidate;
+        break;
+      }
+    }
+
+    if (verifiedPdfUrl) {
+      const isFromSciHub =
+        record.checkedSource === 'sci-hub.box' || record.checkedSource === 'sci-hub-archive';
+      res.json({
+        available: true,
+        isPaidRestricted: false,
+        doi,
+        pdfUrl: verifiedPdfUrl,
+        pdfCandidates: candidates,
+        sciHubBoxUrl,
+        source: isFromSciHub ? 'sci-hub' : 'open-access',
+        fileSize: record.fileSize,
+        message: isFromSciHub
+          ? 'المقالة متوفرة على Sci-Hub بصيغة PDF وجاهزة للتحميل.'
+          : 'المقالة متوفرة مجاناً بصيغة PDF (وصول مفتوح).',
+      } satisfies ArticlePdfCheckResponse);
+      return;
+    }
+
+    res.json({
+      available: false,
+      isPaidRestricted: true,
+      doi,
+      pdfUrl: null,
+      pdfCandidates: [],
+      sciHubBoxUrl,
+      source: 'none',
+      fileSize: null,
+      message: 'هذه المقالة غير موجودة على موقع Sci-Hub بصيغة PDF — المقالة مدفوعة وغير مجانية ولا يمكن تحميلها.',
+    } satisfies ArticlePdfCheckResponse);
+  });
 
   app.post('/api/lookup', async (req, res) => {
     const rawInput = typeof req.body?.input === 'string' ? req.body.input.trim() : '';
