@@ -42,6 +42,8 @@ export default function App() {
   const [mode, setMode] = useState<SearchMode>('topic');
   const [isDark, setIsDark] = useState<boolean>(() => loadSavedTheme());
   const [topicQuery, setTopicQuery] = useState('');
+  const [yearFrom, setYearFrom] = useState('');
+  const [yearTo, setYearTo] = useState('');
   const [input, setInput] = useState('');
   const [batchInput, setBatchInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -115,7 +117,11 @@ export default function App() {
       const res = await fetch('/api/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q }),
+        body: JSON.stringify({
+          query: q,
+          yearFrom: yearFrom.trim() ? Number(yearFrom.trim()) : null,
+          yearTo: yearTo.trim() ? Number(yearTo.trim()) : null,
+        }),
       });
       const data: ArticleSearchResponse = await res.json();
       setTopicSearchResult(data);
@@ -269,6 +275,8 @@ export default function App() {
   const handleNewSearch = () => {
     setMode('topic');
     setTopicQuery('');
+    setYearFrom('');
+    setYearTo('');
     setInput('');
     setTopicSearchResult(null);
     setResult(null);
@@ -320,6 +328,10 @@ export default function App() {
           onToggleTheme={() => setIsDark((prev) => !prev)}
           topicQuery={topicQuery}
           onTopicQueryChange={setTopicQuery}
+          yearFrom={yearFrom}
+          onYearFromChange={setYearFrom}
+          yearTo={yearTo}
+          onYearToChange={setYearTo}
           input={input}
           onInputChange={setInput}
           batchInput={batchInput}

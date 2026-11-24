@@ -10,6 +10,10 @@ interface SearchFormProps {
   onToggleTheme: () => void;
   topicQuery: string;
   onTopicQueryChange: (val: string) => void;
+  yearFrom: string;
+  onYearFromChange: (val: string) => void;
+  yearTo: string;
+  onYearToChange: (val: string) => void;
   input: string;
   onInputChange: (val: string) => void;
   batchInput: string;
@@ -86,6 +90,10 @@ export function SearchForm({
   onToggleTheme,
   topicQuery,
   onTopicQueryChange,
+  yearFrom,
+  onYearFromChange,
+  yearTo,
+  onYearToChange,
   input,
   onInputChange,
   batchInput,
@@ -276,7 +284,111 @@ export function SearchForm({
                   </button>
                 </div>
 
-                <div className="mt-4 pt-3.5 border-t border-[#F1F5F9] dark:border-[#1F2737] flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#64748B] dark:text-[#94A3B8]">
+                {/* Year Range Filter (From Year - To Year) */}
+                <div className="mt-4 pt-3.5 border-t border-[#F1F5F9] dark:border-[#1F2737] flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-semibold text-[#0F172A] dark:text-[#F8FAFC]">
+                      نطاق السنوات:
+                    </span>
+                    <label className="inline-flex items-center gap-1.5 text-[#475569] dark:text-[#94A3B8]">
+                      <span>من</span>
+                      <input
+                        type="number"
+                        min={1900}
+                        max={2027}
+                        dir="ltr"
+                        inputMode="numeric"
+                        value={yearFrom}
+                        onChange={(e) => onYearFromChange(e.target.value)}
+                        placeholder="2018"
+                        disabled={isLoading}
+                        aria-label="من سنة"
+                        className="w-20 min-h-[34px] rounded-lg border border-[#CBD5E1] dark:border-[#2A3346] bg-[#F8FAFC] dark:bg-[#090B10] px-2.5 py-1 font-mono text-xs text-[#0F172A] dark:text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none tabular-nums"
+                      />
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 text-[#475569] dark:text-[#94A3B8]">
+                      <span>إلى</span>
+                      <input
+                        type="number"
+                        min={1900}
+                        max={2027}
+                        dir="ltr"
+                        inputMode="numeric"
+                        value={yearTo}
+                        onChange={(e) => onYearToChange(e.target.value)}
+                        placeholder="2026"
+                        disabled={isLoading}
+                        aria-label="إلى سنة"
+                        className="w-20 min-h-[34px] rounded-lg border border-[#CBD5E1] dark:border-[#2A3346] bg-[#F8FAFC] dark:bg-[#090B10] px-2.5 py-1 font-mono text-xs text-[#0F172A] dark:text-[#F8FAFC] placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:outline-none tabular-nums"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => {
+                        onYearFromChange('');
+                        onYearToChange('');
+                      }}
+                      className={`rounded-lg px-2 py-1 transition-colors cursor-pointer ${
+                        !yearFrom && !yearTo
+                          ? 'bg-[#2563EB]/10 text-[#2563EB] dark:text-[#60A5FA] font-semibold'
+                          : 'text-[#64748B] dark:text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-[#F8FAFC]'
+                      }`}
+                    >
+                      كل السنوات
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => {
+                        onYearFromChange('2021');
+                        onYearToChange('2026');
+                      }}
+                      className={`rounded-lg px-2 py-1 font-mono transition-colors cursor-pointer tabular-nums ${
+                        yearFrom === '2021' && yearTo === '2026'
+                          ? 'bg-[#2563EB]/10 text-[#2563EB] dark:text-[#60A5FA] font-semibold'
+                          : 'text-[#64748B] dark:text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-[#F8FAFC]'
+                      }`}
+                    >
+                      2021–2026
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => {
+                        onYearFromChange('2015');
+                        onYearToChange('2020');
+                      }}
+                      className={`rounded-lg px-2 py-1 font-mono transition-colors cursor-pointer tabular-nums ${
+                        yearFrom === '2015' && yearTo === '2020'
+                          ? 'bg-[#2563EB]/10 text-[#2563EB] dark:text-[#60A5FA] font-semibold'
+                          : 'text-[#64748B] dark:text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-[#F8FAFC]'
+                      }`}
+                    >
+                      2015–2020
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => {
+                        onYearFromChange('2000');
+                        onYearToChange('2014');
+                      }}
+                      className={`rounded-lg px-2 py-1 font-mono transition-colors cursor-pointer tabular-nums ${
+                        yearFrom === '2000' && yearTo === '2014'
+                          ? 'bg-[#2563EB]/10 text-[#2563EB] dark:text-[#60A5FA] font-semibold'
+                          : 'text-[#64748B] dark:text-[#94A3B8] hover:text-[#0F172A] dark:hover:text-[#F8FAFC]'
+                      }`}
+                    >
+                      2000–2014
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 pt-3 border-t border-[#F1F5F9] dark:border-[#1F2737] flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[#64748B] dark:text-[#94A3B8]">
                   <span className="font-medium text-[#0F172A] dark:text-[#CBD5E1]">محركات البحث:</span>
                   {SEARCH_ENGINES.map((eng, idx) => (
                     <span key={eng} className="inline-flex items-center gap-2.5">

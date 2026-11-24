@@ -757,12 +757,12 @@ function parseSciHubPage(html: string, baseOrigin: string, doi: string): {
   };
 }
 
-async function verifyPdfStream(rawUrl: string): Promise<boolean> {
+async function verifyPdfStream(rawUrl: string, refererUrl?: string): Promise<boolean> {
   try {
     const { response } = await safeFetch(rawUrl, {
       headers: {
         Accept: 'application/pdf,application/octet-stream;q=0.9,*/*;q=0.8',
-        Referer: 'https://sci-hub.box/',
+        Referer: refererUrl ?? 'https://sci-hub.box/',
       },
       timeoutMs: 8000,
     });
@@ -773,10 +773,100 @@ async function verifyPdfStream(rawUrl: string): Promise<boolean> {
     const { value } = await reader.read();
     await reader.cancel().catch(() => {});
     if (!value || value.byteLength < 5) return false;
-    const magic = Buffer.from(value.subarray(0, 5)).toString('ascii');
-    return magic === '%PDF-';
+    const head = Buffer.from(value.subarray(0, Math.min(32, value.byteLength))).toString('ascii');
+    return head.includes('%PDF-');
   } catch {
     return false;
+  }
+}
+
+async function fetchUnpaywallPdfCandidates(doi: string): Promise<string[]> {
+  try {
+    const res = await fetch(
+      `https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=academic.explorer@example.org`,
+      {
+        headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
+        signal: AbortSignal.timeout(4500),
+      }
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const urls = new Set<string>();
+    if (typeof data?.best_oa_location?.url_for_pdf === 'string') {
+      urls.add(data.best_oa_location.url_for_pdf);
+    }
+    if (Array.isArray(data?.oa_locations)) {
+      for (const loc of data.oa_locations) {
+        if (typeof loc?.url_for_pdf === 'string') {
+          urls.add(loc.url_for_pdf);
+        }
+      }
+    }
+    return Array.from(urls).filter((u) => u.startsWith('http'));
+  } catch {
+    return [];
+  }
+}
+
+async function extractDirectPdfFromArticlePage(articleUrl: string): Promise<string[]> {
+  if (!articleUrl || !articleUrl.startsWith('http')) return [];
+  try {
+    const { response, finalUrl } = await safeFetch(articleUrl, { timeoutMs: 6500 });
+    if (!response.ok) return [];
+    const contentType = (response.headers.get('content-type') ?? '').toLowerCase();
+    if (contentType.includes('application/pdf')) {
+      return [finalUrl];
+    }
+    if (!contentType.includes('text/html')) return [];
+
+    const html = await readTextLimited(response, 1024 * 1024);
+    const $ = cheerio.load(html);
+    const origin = new URL(finalUrl).origin;
+    const candidates = new Set<string>();
+
+    const addRel = (raw?: string | null, isStrictMeta = false) => {
+      if (!raw) return;
+      const abs = resolveAbsoluteUrl(raw, origin);
+      if (!abs || abs.includes('sci-hub')) return;
+      if (!isStrictMeta) {
+        const lower = abs.toLowerCase();
+        if (
+          lower.includes('/esm/') ||
+          lower.includes('moesm') ||
+          lower.includes('_esm') ||
+          lower.includes('suppl') ||
+          lower.includes('supporting') ||
+          lower.includes('appendix')
+        ) {
+          return;
+        }
+      }
+      candidates.add(abs);
+    };
+
+    addRel($('meta[name="citation_pdf_url"]').attr('content'), true);
+    addRel($('meta[property="citation_pdf_url"]').attr('content'), true);
+    addRel($('meta[name="eprints.document_url"]').attr('content'), true);
+    addRel($('link[rel="alternate"][type="application/pdf"]').attr('href'), true);
+
+    $('a[href*=".pdf"], a[href*="/pdf/"], a[href*="blobtype=pdf"], a[href*="type=printable"]').each(
+      (_, el) => {
+        if (candidates.size >= 6) return;
+        const linkText = $(el).text().toLowerCase();
+        if (
+          linkText.includes('supplement') ||
+          linkText.includes('appendix') ||
+          linkText.includes('supporting')
+        ) {
+          return;
+        }
+        addRel($(el).attr('href'), false);
+      }
+    );
+
+    return Array.from(candidates);
+  } catch {
+    return [];
   }
 }
 
@@ -952,13 +1042,20 @@ async function searchSciHub(doi: string, openAccessFallback: string | null): Pro
 }
 
 const STOPWORDS = new Set([
-  'the', 'a', 'an', 'of', 'in', 'on', 'for', 'and', 'or', 'to', 'with', 'by', 'from', 'as', 'at', 'is', 'are', 'using', 'based', 'via',
-  'في', 'من', 'على', 'إلى', 'عن', 'مع', 'أو', 'و', 'ال', 'بين', 'حول', 'دراسة', 'بحث',
+  'the', 'a', 'an', 'of', 'in', 'on', 'for', 'and', 'or', 'to', 'with', 'by', 'from', 'as', 'at', 'is', 'are', 'using', 'based', 'via', 'study', 'analysis',
+  'في', 'من', 'على', 'إلى', 'الى', 'عن', 'مع', 'أو', 'او', 'و', 'ال', 'بين', 'حول', 'دراسة', 'بحث', 'تحليل',
 ]);
 
-function normalizeTextTokens(text: string): string[] {
+function normalizeArabicChars(text: string): string {
   return text
-    .toLowerCase()
+    .replace(/[\u064B-\u065F\u0670]/g, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي');
+}
+
+function normalizeTextTokens(text: string): string[] {
+  return normalizeArabicChars(text.toLowerCase())
     .replace(/<[^>]+>/g, ' ')
     .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
@@ -967,8 +1064,8 @@ function normalizeTextTokens(text: string): string[] {
 }
 
 function computeTitleSimilarity(query: string, candidateTitle: string): number {
-  const qNorm = query.toLowerCase().replace(/\s+/g, ' ').trim();
-  const tNorm = candidateTitle.toLowerCase().replace(/\s+/g, ' ').trim();
+  const qNorm = normalizeArabicChars(query.toLowerCase()).replace(/\s+/g, ' ').trim();
+  const tNorm = normalizeArabicChars(candidateTitle.toLowerCase()).replace(/\s+/g, ' ').trim();
   if (!qNorm || !tNorm) return 0;
   if (qNorm === tNorm) return 100;
 
@@ -988,68 +1085,143 @@ function computeTitleSimilarity(query: string, candidateTitle: string): number {
     }
   }
 
+  // Consecutive bigram bonus for multi-word research title accuracy
+  let bigramBonus = 0;
+  if (qTokens.length >= 2 && tTokens.length >= 2) {
+    const tBigrams = new Set<string>();
+    for (let i = 0; i < tTokens.length - 1; i++) {
+      tBigrams.add(`${tTokens[i]} ${tTokens[i + 1]}`);
+    }
+    let bigramHits = 0;
+    for (let i = 0; i < qTokens.length - 1; i++) {
+      if (tBigrams.has(`${qTokens[i]} ${qTokens[i + 1]}`)) {
+        bigramHits += 1;
+      }
+    }
+    bigramBonus = (bigramHits / (qTokens.length - 1)) * 0.18;
+  }
+
   const recall = matchedWeight / qTokens.length;
   const precision = matchedWeight / Math.max(tTokens.length, qTokens.length);
-  const phraseBonus = tNorm.includes(qNorm) || qNorm.includes(tNorm) ? 0.15 : 0;
+  const phraseBonus = tNorm.includes(qNorm) || qNorm.includes(tNorm) ? 0.16 : 0;
 
-  const rawScore = (recall * 0.65 + precision * 0.25 + phraseBonus) * 100;
-  return Math.min(99, Math.max(12, Math.round(rawScore)));
+  const rawScore = (recall * 0.58 + precision * 0.22 + bigramBonus + phraseBonus) * 100;
+  return Math.min(99, Math.max(10, Math.round(rawScore)));
 }
 
-async function searchOpenAlex(query: string): Promise<SearchArticleResult[]> {
-  const url = `https://api.openalex.org/works?search=${encodeURIComponent(query)}&per-page=12&sort=relevance_score:desc`;
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
-    signal: AbortSignal.timeout(6500),
-  });
-  if (!res.ok) return [];
-  const data = await res.json();
-  const results = Array.isArray(data?.results) ? data.results : [];
+function buildOpenAlexYearFilter(yearFrom?: number | null, yearTo?: number | null): string {
+  if (yearFrom && yearTo) return `publication_year:${yearFrom}-${yearTo}`;
+  if (yearFrom) return `publication_year:>${yearFrom - 1}`;
+  if (yearTo) return `publication_year:<${yearTo + 1}`;
+  return '';
+}
 
-  return results
+function mapOpenAlexWork(
+  query: string,
+  w: {
+    id?: string;
+    doi?: string;
+    title?: string;
+    publication_date?: string;
+    publication_year?: number;
+    cited_by_count?: number;
+    authorships?: Array<{ author?: { display_name?: string } }>;
+    primary_location?: { landing_page_url?: string; pdf_url?: string; source?: { display_name?: string } };
+    best_oa_location?: { pdf_url?: string; landing_page_url?: string };
+    locations?: Array<{ pdf_url?: string; landing_page_url?: string }>;
+  }
+): SearchArticleResult {
+  const doi = w.doi ? cleanDoi(String(w.doi)) : null;
+  const landing =
+    w.primary_location?.landing_page_url ??
+    w.best_oa_location?.landing_page_url ??
+    (doi ? `https://doi.org/${doi}` : w.id ?? '');
+
+  const candidateSet = new Set<string>();
+  const addPdf = (u?: string | null) => {
+    if (typeof u === 'string' && u.startsWith('http') && !u.toLowerCase().endsWith('.html')) {
+      candidateSet.add(u);
+    }
+  };
+  addPdf(w.best_oa_location?.pdf_url);
+  addPdf(w.primary_location?.pdf_url);
+  if (Array.isArray(w.locations)) {
+    for (const loc of w.locations) {
+      addPdf(loc.pdf_url);
+    }
+  }
+  const pdfCandidates = Array.from(candidateSet);
+  const title = String(w.title).replace(/<[^>]+>/g, '').trim();
+
+  return {
+    id: `oa-${doi ?? w.id ?? title}`,
+    title,
+    authors: Array.isArray(w.authorships)
+      ? w.authorships.slice(0, 5).map((a) => a.author?.display_name ?? '').filter(Boolean)
+      : [],
+    publishedDate: w.publication_date ? String(w.publication_date) : w.publication_year ? String(w.publication_year) : null,
+    year: w.publication_year ? String(w.publication_year) : null,
+    articleUrl: String(landing),
+    doi,
+    sourceEngine: 'OpenAlex',
+    venue: w.primary_location?.source?.display_name ? String(w.primary_location.source.display_name) : null,
+    citedByCount: typeof w.cited_by_count === 'number' ? w.cited_by_count : null,
+    abstract: null,
+    openAccessPdfUrl: pdfCandidates[0] ?? null,
+    pdfCandidates,
+    similarityScore: computeTitleSimilarity(query, title),
+  };
+}
+
+async function searchOpenAlex(
+  query: string,
+  yearFrom?: number | null,
+  yearTo?: number | null
+): Promise<SearchArticleResult[]> {
+  const yf = buildOpenAlexYearFilter(yearFrom, yearTo);
+  const titleFilter = yf
+    ? `title.search:${encodeURIComponent(query)},${yf}`
+    : `title.search:${encodeURIComponent(query)}`;
+  const searchUrl = `https://api.openalex.org/works?search=${encodeURIComponent(query)}${
+    yf ? `&filter=${yf}` : ''
+  }&per-page=12&sort=relevance_score:desc`;
+  const titleUrl = `https://api.openalex.org/works?filter=${titleFilter}&per-page=10&sort=cited_by_count:desc`;
+
+  const [sRes, tRes] = await Promise.allSettled([
+    fetch(searchUrl, {
+      headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
+      signal: AbortSignal.timeout(6500),
+    }).then((r) => (r.ok ? r.json() : null)),
+    fetch(titleUrl, {
+      headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
+      signal: AbortSignal.timeout(6500),
+    }).then((r) => (r.ok ? r.json() : null)),
+  ]);
+
+  const combined = [
+    ...(tRes.status === 'fulfilled' && Array.isArray(tRes.value?.results) ? tRes.value.results : []),
+    ...(sRes.status === 'fulfilled' && Array.isArray(sRes.value?.results) ? sRes.value.results : []),
+  ];
+
+  return combined
     .filter((w: { title?: string }) => Boolean(w?.title))
-    .map((w: {
-      id?: string;
-      doi?: string;
-      title?: string;
-      publication_date?: string;
-      publication_year?: number;
-      cited_by_count?: number;
-      authorships?: Array<{ author?: { display_name?: string } }>;
-      primary_location?: { landing_page_url?: string; pdf_url?: string; source?: { display_name?: string } };
-      best_oa_location?: { pdf_url?: string; landing_page_url?: string };
-    }) => {
-      const doi = w.doi ? cleanDoi(String(w.doi)) : null;
-      const landing =
-        w.primary_location?.landing_page_url ??
-        w.best_oa_location?.landing_page_url ??
-        (doi ? `https://doi.org/${doi}` : w.id ?? '');
-      const oaPdf = w.best_oa_location?.pdf_url ?? w.primary_location?.pdf_url ?? null;
-      const title = String(w.title).replace(/<[^>]+>/g, '').trim();
-
-      return {
-        id: `oa-${doi ?? w.id ?? title}`,
-        title,
-        authors: Array.isArray(w.authorships)
-          ? w.authorships.slice(0, 5).map((a) => a.author?.display_name ?? '').filter(Boolean)
-          : [],
-        publishedDate: w.publication_date ? String(w.publication_date) : w.publication_year ? String(w.publication_year) : null,
-        year: w.publication_year ? String(w.publication_year) : null,
-        articleUrl: String(landing),
-        doi,
-        sourceEngine: 'OpenAlex',
-        venue: w.primary_location?.source?.display_name ? String(w.primary_location.source.display_name) : null,
-        citedByCount: typeof w.cited_by_count === 'number' ? w.cited_by_count : null,
-        abstract: null,
-        openAccessPdfUrl: typeof oaPdf === 'string' && oaPdf.startsWith('http') && !oaPdf.endsWith('.html') ? oaPdf : null,
-        similarityScore: computeTitleSimilarity(query, title),
-      } satisfies SearchArticleResult;
-    });
+    .map((w) => mapOpenAlexWork(query, w));
 }
 
-async function searchCrossref(query: string): Promise<SearchArticleResult[]> {
-  const url = `https://api.crossref.org/works?query=${encodeURIComponent(query)}&rows=12&sort=relevance`;
-  const res = await fetch(url, {
+async function searchCrossref(
+  query: string,
+  yearFrom?: number | null,
+  yearTo?: number | null
+): Promise<SearchArticleResult[]> {
+  const filters: string[] = [];
+  if (yearFrom) filters.push(`from-pub-date:${yearFrom}-01-01`);
+  if (yearTo) filters.push(`until-pub-date:${yearTo}-12-31`);
+  const filterParam = filters.length > 0 ? `&filter=${filters.join(',')}` : '';
+
+  const titleUrl = `https://api.crossref.org/works?query.title=${encodeURIComponent(
+    query
+  )}${filterParam}&rows=14&sort=relevance`;
+  const res = await fetch(titleUrl, {
     headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
     signal: AbortSignal.timeout(6500),
   });
@@ -1083,9 +1255,16 @@ async function searchCrossref(query: string): Promise<SearchArticleResult[]> {
         ? parts.map((n, idx) => (idx === 0 ? String(n) : String(n).padStart(2, '0'))).join('-')
         : null;
       const year = Array.isArray(parts) && parts[0] ? String(parts[0]) : null;
-      const pdfLink = Array.isArray(m.link)
-        ? m.link.find((l) => l['content-type'] === 'application/pdf' && typeof l.URL === 'string')?.URL ?? null
-        : null;
+      const pdfLinks = Array.isArray(m.link)
+        ? m.link
+            .filter(
+              (l) =>
+                typeof l.URL === 'string' &&
+                l.URL.startsWith('http') &&
+                (l['content-type'] === 'application/pdf' || l.URL.toLowerCase().includes('.pdf'))
+            )
+            .map((l) => l.URL!)
+        : [];
 
       return {
         id: `cr-${doi ?? title}`,
@@ -1106,14 +1285,27 @@ async function searchCrossref(query: string): Promise<SearchArticleResult[]> {
           : m.publisher ?? null,
         citedByCount: typeof m['is-referenced-by-count'] === 'number' ? m['is-referenced-by-count'] : null,
         abstract: m.abstract ? String(m.abstract).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : null,
-        openAccessPdfUrl: pdfLink,
+        openAccessPdfUrl: pdfLinks[0] ?? null,
+        pdfCandidates: pdfLinks,
         similarityScore: computeTitleSimilarity(query, title),
       } satisfies SearchArticleResult;
     });
 }
 
-async function searchEuropePmc(query: string): Promise<SearchArticleResult[]> {
-  const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(query)}&resultType=lite&pageSize=10&format=json`;
+async function searchEuropePmc(
+  query: string,
+  yearFrom?: number | null,
+  yearTo?: number | null
+): Promise<SearchArticleResult[]> {
+  let epmcQuery = query;
+  if (yearFrom || yearTo) {
+    const fromY = yearFrom ?? 1900;
+    const toY = yearTo ?? new Date().getFullYear() + 1;
+    epmcQuery = `(${query}) AND (PUB_YEAR:[${fromY} TO ${toY}])`;
+  }
+  const url = `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${encodeURIComponent(
+    epmcQuery
+  )}&resultType=lite&pageSize=12&format=json`;
   const res = await fetch(url, {
     headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
     signal: AbortSignal.timeout(6500),
@@ -1148,6 +1340,11 @@ async function searchEuropePmc(query: string): Promise<SearchArticleResult[]> {
         ? `https://pubmed.ncbi.nlm.nih.gov/${item.pmid}/`
         : `https://europepmc.org/article/${item.source ?? 'MED'}/${item.id ?? ''}`;
 
+      const oaPdf =
+        item.pmcid && item.isOpenAccess === 'Y'
+          ? `https://europepmc.org/backend/ptpmcrender.fcgi?accid=${item.pmcid}&blobtype=pdf`
+          : null;
+
       return {
         id: `epmc-${doi ?? item.id ?? title}`,
         title,
@@ -1162,17 +1359,30 @@ async function searchEuropePmc(query: string): Promise<SearchArticleResult[]> {
         venue: item.journalTitle ? String(item.journalTitle) : null,
         citedByCount: typeof item.citedByCount === 'number' ? item.citedByCount : null,
         abstract: null,
-        openAccessPdfUrl:
-          item.pmcid && item.isOpenAccess === 'Y'
-            ? `https://europepmc.org/backend/ptpmcrender.fcgi?accid=${item.pmcid}&blobtype=pdf`
-            : null,
+        openAccessPdfUrl: oaPdf,
+        pdfCandidates: oaPdf ? [oaPdf] : [],
         similarityScore: computeTitleSimilarity(query, title),
       } satisfies SearchArticleResult;
     });
 }
 
-async function searchArxiv(query: string): Promise<SearchArticleResult[]> {
-  const url = `https://export.arxiv.org/api/query?search_query=all:${encodeURIComponent(query)}&start=0&max_results=8`;
+async function searchArxiv(
+  query: string,
+  yearFrom?: number | null,
+  yearTo?: number | null
+): Promise<SearchArticleResult[]> {
+  const tokens = normalizeTextTokens(query).filter((t) => /^[a-z0-9-]+$/i.test(t));
+  const baseQuery =
+    tokens.length > 0
+      ? `(${tokens.slice(0, 6).map((t) => `all:${encodeURIComponent(t)}`).join('+AND+')})`
+      : `all:${encodeURIComponent(query)}`;
+
+  const dateFilter =
+    yearFrom || yearTo
+      ? `+AND+submittedDate:[${yearFrom ?? 1991}01010000+TO+${yearTo ?? new Date().getFullYear() + 1}12312359]`
+      : '';
+
+  const url = `https://export.arxiv.org/api/query?search_query=${baseQuery}${dateFilter}&start=0&max_results=10`;
   const res = await fetch(url, {
     headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
     signal: AbortSignal.timeout(6500),
@@ -1199,6 +1409,7 @@ async function searchArxiv(query: string): Promise<SearchArticleResult[]> {
     const arxMatch = idUrl.match(/arxiv\.org\/abs\/([^\s?#]+)/i);
     const arxId = arxMatch ? arxMatch[1].replace(/v\d+$/i, '') : null;
     const doi = arxId ? `10.48550/arXiv.${arxId}` : null;
+    const pdfUrl = arxId ? `https://arxiv.org/pdf/${arxId}.pdf` : null;
 
     results.push({
       id: `arxiv-${arxId ?? idUrl}`,
@@ -1212,7 +1423,8 @@ async function searchArxiv(query: string): Promise<SearchArticleResult[]> {
       venue: 'arXiv Preprint',
       citedByCount: null,
       abstract: summary || null,
-      openAccessPdfUrl: arxId ? `https://arxiv.org/pdf/${arxId}.pdf` : null,
+      openAccessPdfUrl: pdfUrl,
+      pdfCandidates: pdfUrl ? [pdfUrl] : [],
       similarityScore: computeTitleSimilarity(query, title),
     });
   });
@@ -1220,8 +1432,12 @@ async function searchArxiv(query: string): Promise<SearchArticleResult[]> {
   return results;
 }
 
-async function searchDoaj(query: string): Promise<SearchArticleResult[]> {
-  const url = `https://doaj.org/api/search/articles/${encodeURIComponent(query)}?pageSize=8`;
+async function searchDoaj(
+  query: string,
+  yearFrom?: number | null,
+  yearTo?: number | null
+): Promise<SearchArticleResult[]> {
+  const url = `https://doaj.org/api/search/articles/${encodeURIComponent(query)}?pageSize=12`;
   const res = await fetch(url, {
     headers: { 'User-Agent': 'AcademicArticleExplorer/1.0' },
     signal: AbortSignal.timeout(6500),
@@ -1231,7 +1447,16 @@ async function searchDoaj(query: string): Promise<SearchArticleResult[]> {
   const list = Array.isArray(data?.results) ? data.results : [];
 
   return list
-    .filter((item: { bibjson?: { title?: string } }) => Boolean(item?.bibjson?.title))
+    .filter((item: { bibjson?: { title?: string; year?: string } }) => {
+      if (!item?.bibjson?.title) return false;
+      if (yearFrom || yearTo) {
+        const y = Number(item.bibjson.year);
+        if (!y || Number.isNaN(y)) return false;
+        if (yearFrom && y < yearFrom) return false;
+        if (yearTo && y > yearTo) return false;
+      }
+      return true;
+    })
     .map((item: {
       id?: string;
       bibjson: {
@@ -1249,9 +1474,13 @@ async function searchDoaj(query: string): Promise<SearchArticleResult[]> {
         ? b.identifier.find((x) => x.type?.toLowerCase() === 'doi')?.id ?? null
         : null;
       const doi = doiId ? cleanDoi(doiId) : null;
-      const fulltextLink = Array.isArray(b.link)
-        ? b.link.find((l) => l.type === 'fulltext')?.url ?? b.link[0]?.url ?? null
-        : null;
+      const fulltextLinks = Array.isArray(b.link)
+        ? b.link
+            .filter((l) => typeof l.url === 'string' && l.url.startsWith('http'))
+            .map((l) => l.url!)
+        : [];
+      const pdfLinks = fulltextLinks.filter((u) => u.toLowerCase().includes('.pdf'));
+      const fulltextLink = fulltextLinks[0] ?? null;
       const title = String(b.title).replace(/<[^>]+>/g, '').trim();
 
       return {
@@ -1266,20 +1495,24 @@ async function searchDoaj(query: string): Promise<SearchArticleResult[]> {
         venue: b.journal?.title ? String(b.journal.title) : null,
         citedByCount: null,
         abstract: b.abstract ? String(b.abstract).trim() : null,
-        openAccessPdfUrl:
-          fulltextLink && fulltextLink.toLowerCase().includes('.pdf') ? fulltextLink : null,
+        openAccessPdfUrl: pdfLinks[0] ?? null,
+        pdfCandidates: pdfLinks,
         similarityScore: computeTitleSimilarity(query, title),
       } satisfies SearchArticleResult;
     });
 }
 
-async function searchAllAcademicEngines(query: string): Promise<ArticleSearchResponse> {
+async function searchAllAcademicEngines(
+  query: string,
+  yearFrom?: number | null,
+  yearTo?: number | null
+): Promise<ArticleSearchResponse> {
   const engines = [
-    { name: 'OpenAlex', fn: () => searchOpenAlex(query) },
-    { name: 'Crossref', fn: () => searchCrossref(query) },
-    { name: 'Europe PMC', fn: () => searchEuropePmc(query) },
-    { name: 'arXiv', fn: () => searchArxiv(query) },
-    { name: 'DOAJ', fn: () => searchDoaj(query) },
+    { name: 'OpenAlex', fn: () => searchOpenAlex(query, yearFrom, yearTo) },
+    { name: 'Crossref', fn: () => searchCrossref(query, yearFrom, yearTo) },
+    { name: 'Europe PMC', fn: () => searchEuropePmc(query, yearFrom, yearTo) },
+    { name: 'arXiv', fn: () => searchArxiv(query, yearFrom, yearTo) },
+    { name: 'DOAJ', fn: () => searchDoaj(query, yearFrom, yearTo) },
   ];
 
   const settled = await Promise.allSettled(engines.map((e) => e.fn()));
@@ -1292,17 +1525,35 @@ async function searchAllAcademicEngines(query: string): Promise<ArticleSearchRes
       enginesSearched.push(engineName);
       for (const item of outcome.value) {
         if (!item.articleUrl) continue;
-        const normTitle = item.title.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]+/g, '').slice(0, 80);
+
+        // Enforce strict year bounds if user specified a year range
+        if (yearFrom || yearTo) {
+          const itemYear = item.year ? Number(item.year) : Number((item.publishedDate ?? '').slice(0, 4));
+          if (!itemYear || Number.isNaN(itemYear)) continue;
+          if (yearFrom && itemYear < yearFrom) continue;
+          if (yearTo && itemYear > yearTo) continue;
+        }
+
+        const normTitle = normalizeArabicChars(item.title.toLowerCase())
+          .replace(/[^a-z0-9\u0600-\u06FF]+/g, '')
+          .slice(0, 80);
         const dedupKey = item.doi ? `doi:${item.doi.toLowerCase()}` : `title:${normTitle}`;
 
         const existing = merged.get(dedupKey);
         if (!existing) {
           merged.set(dedupKey, item);
         } else {
-          // Merge richer details (keep higher citation count, exact date, OA pdf, and combine source attribution)
           const sources = existing.sourceEngine.includes(item.sourceEngine)
             ? existing.sourceEngine
             : `${existing.sourceEngine} / ${item.sourceEngine}`;
+          const mergedPdfCandidates = Array.from(
+            new Set([
+              ...(existing.pdfCandidates ?? []),
+              ...(item.pdfCandidates ?? []),
+              ...(existing.openAccessPdfUrl ? [existing.openAccessPdfUrl] : []),
+              ...(item.openAccessPdfUrl ? [item.openAccessPdfUrl] : []),
+            ])
+          );
           merged.set(dedupKey, {
             ...existing,
             sourceEngine: sources,
@@ -1319,7 +1570,8 @@ async function searchAllAcademicEngines(query: string): Promise<ArticleSearchRes
                 ? Math.max(existing.citedByCount, item.citedByCount)
                 : existing.citedByCount ?? item.citedByCount,
             abstract: existing.abstract ?? item.abstract,
-            openAccessPdfUrl: existing.openAccessPdfUrl ?? item.openAccessPdfUrl,
+            openAccessPdfUrl: existing.openAccessPdfUrl ?? item.openAccessPdfUrl ?? mergedPdfCandidates[0] ?? null,
+            pdfCandidates: mergedPdfCandidates,
             similarityScore: Math.max(existing.similarityScore, item.similarityScore),
           });
         }
@@ -1327,22 +1579,35 @@ async function searchAllAcademicEngines(query: string): Promise<ArticleSearchRes
     }
   });
 
-  const sorted = Array.from(merged.values())
+  const allValues = Array.from(merged.values());
+  const relevant = allValues.filter((a) => a.similarityScore >= 22);
+  const pool = relevant.length >= 4 ? relevant : allValues;
+
+  const sorted = pool
     .sort((a, b) => {
-      // Prioritize closeness to query title, with subtle tie-break on citation count
       const scoreDiff = b.similarityScore - a.similarityScore;
-      if (Math.abs(scoreDiff) >= 8) return scoreDiff;
+      if (Math.abs(scoreDiff) >= 6) return scoreDiff;
       return (b.citedByCount ?? 0) - (a.citedByCount ?? 0);
     })
-    .slice(0, 24);
+    .slice(0, 30);
 
   return {
     success: true,
     query,
+    yearFrom: yearFrom ?? null,
+    yearTo: yearTo ?? null,
     enginesSearched: enginesSearched.length > 0 ? enginesSearched : engines.map((e) => e.name),
     totalResults: sorted.length,
     articles: sorted,
   };
+}
+
+function parseOptionalYear(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === '') return null;
+  const n = Number(raw);
+  const maxYear = new Date().getFullYear() + 1;
+  if (!Number.isInteger(n) || n < 1900 || n > maxYear) return null;
+  return n;
 }
 
 async function createServer() {
@@ -1351,10 +1616,18 @@ async function createServer() {
 
   app.post('/api/search', async (req, res) => {
     const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
+    let yearFrom = parseOptionalYear(req.body?.yearFrom);
+    let yearTo = parseOptionalYear(req.body?.yearTo);
+    if (yearFrom && yearTo && yearFrom > yearTo) {
+      [yearFrom, yearTo] = [yearTo, yearFrom];
+    }
+
     if (!query || query.length > 500) {
       res.status(400).json({
         success: false,
         query,
+        yearFrom,
+        yearTo,
         enginesSearched: [],
         totalResults: 0,
         articles: [],
@@ -1364,12 +1637,14 @@ async function createServer() {
     }
 
     try {
-      const result = await searchAllAcademicEngines(query);
+      const result = await searchAllAcademicEngines(query, yearFrom, yearTo);
       res.json(result);
     } catch {
       res.status(500).json({
         success: false,
         query,
+        yearFrom,
+        yearTo,
         enginesSearched: [],
         totalResults: 0,
         articles: [],
@@ -1383,6 +1658,9 @@ async function createServer() {
     const rawUrl = typeof req.body?.articleUrl === 'string' ? req.body.articleUrl.trim() : '';
     const rawTitle = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
     const rawOaPdf = typeof req.body?.openAccessPdfUrl === 'string' ? req.body.openAccessPdfUrl.trim() : '';
+    const rawCandidates = Array.isArray(req.body?.pdfCandidates)
+      ? req.body.pdfCandidates.filter((c: unknown): c is string => typeof c === 'string' && c.startsWith('http'))
+      : [];
 
     let doi = rawDoi ? cleanDoi(rawDoi) : null;
 
@@ -1411,82 +1689,92 @@ async function createServer() {
       }
     }
 
-    const oaFallback =
-      rawOaPdf && (rawOaPdf.startsWith('http://') || rawOaPdf.startsWith('https://'))
-        ? rawOaPdf
-        : null;
+    // Step 1: Collect direct PDF download links FROM THE ARTICLE ITSELF (before Sci-Hub)
+    const directCandidatesSet = new Set<string>();
+    const addDirect = (u: string | null | undefined) => {
+      if (u && (u.startsWith('http://') || u.startsWith('https://')) && !u.includes('sci-hub')) {
+        directCandidatesSet.add(u.trim());
+      }
+    };
 
-    if (!doi) {
-      if (oaFallback && (await verifyPdfStream(oaFallback))) {
+    addDirect(rawOaPdf);
+    for (const c of rawCandidates) addDirect(c);
+    if (doi && /^10\.48550\/arXiv\./i.test(doi)) {
+      const arxId = doi.replace(/^10\.48550\/arXiv\./i, '');
+      addDirect(`https://arxiv.org/pdf/${arxId}.pdf`);
+    }
+
+    const [unpaywallUrls, pagePdfUrls] = await Promise.all([
+      doi ? fetchUnpaywallPdfCandidates(doi) : Promise.resolve([]),
+      rawUrl ? extractDirectPdfFromArticlePage(rawUrl) : Promise.resolve([]),
+    ]);
+
+    for (const u of pagePdfUrls) addDirect(u);
+    for (const u of unpaywallUrls) addDirect(u);
+
+    const directCandidates = Array.from(directCandidatesSet).slice(0, 8);
+    const sciHubBoxUrl = doi ? `https://sci-hub.box/${encodeURI(doi)}` : null;
+
+    // Verify direct article PDF candidates first
+    for (const candidate of directCandidates) {
+      if (await verifyPdfStream(candidate, rawUrl || undefined)) {
         res.json({
           available: true,
           isPaidRestricted: false,
-          doi: null,
-          pdfUrl: oaFallback,
-          pdfCandidates: [oaFallback],
-          sciHubBoxUrl: null,
-          source: 'open-access',
+          requiresManualSciHubCheck: false,
+          doi,
+          pdfUrl: candidate,
+          pdfCandidates: directCandidates,
+          sciHubBoxUrl,
+          source: 'article-direct',
           fileSize: null,
-          message: 'تتوفر نسخة مجانية مفتوحة الوصول بصيغة PDF.',
+          sha256: null,
+          md5: null,
+          message: 'تم استخراج رابط تحميل PDF المباشر من المقالة وبدأ التحميل مباشرة.',
         } satisfies ArticlePdfCheckResponse);
         return;
       }
-
-      res.json({
-        available: false,
-        isPaidRestricted: true,
-        doi: null,
-        pdfUrl: null,
-        pdfCandidates: [],
-        sciHubBoxUrl: null,
-        source: 'none',
-        fileSize: null,
-        message: 'هذه المقالة غير موجودة على موقع Sci-Hub بصيغة PDF — المقالة مدفوعة وغير مجانية ولا يمكن تحميلها.',
-      } satisfies ArticlePdfCheckResponse);
-      return;
     }
 
-    const { record } = await searchSciHub(doi, oaFallback);
-    const sciHubBoxUrl = `https://sci-hub.box/${encodeURI(doi)}`;
-    const candidates = record.pdfCandidates ?? (record.pdfUrl ? [record.pdfUrl] : []);
+    // Step 2: Fallback to Sci-Hub (marked for manual inspection / verification)
+    if (doi) {
+      const { record } = await searchSciHub(doi, null);
+      const sciCandidates = record.pdfCandidates ?? (record.pdfUrl ? [record.pdfUrl] : []);
 
-    // Verify which candidate actually streams a real %PDF- file
-    let verifiedPdfUrl: string | null = null;
-    for (const candidate of candidates) {
-      if (await verifyPdfStream(candidate)) {
-        verifiedPdfUrl = candidate;
-        break;
+      for (const candidate of sciCandidates) {
+        if (await verifyPdfStream(candidate)) {
+          res.json({
+            available: true,
+            isPaidRestricted: false,
+            requiresManualSciHubCheck: true,
+            doi,
+            pdfUrl: candidate,
+            pdfCandidates: sciCandidates,
+            sciHubBoxUrl,
+            source: 'sci-hub',
+            fileSize: record.fileSize,
+            sha256: record.sha256,
+            md5: record.md5,
+            message:
+              'تم جلب الملف من موقع Sci-Hub — يمكنك تحميله مباشرة أو فحصه يدوياً عبر المعاينة وبصمة التحقق.',
+          } satisfies ArticlePdfCheckResponse);
+          return;
+        }
       }
-    }
-
-    if (verifiedPdfUrl) {
-      const isFromSciHub =
-        record.checkedSource === 'sci-hub.box' || record.checkedSource === 'sci-hub-archive';
-      res.json({
-        available: true,
-        isPaidRestricted: false,
-        doi,
-        pdfUrl: verifiedPdfUrl,
-        pdfCandidates: candidates,
-        sciHubBoxUrl,
-        source: isFromSciHub ? 'sci-hub' : 'open-access',
-        fileSize: record.fileSize,
-        message: isFromSciHub
-          ? 'المقالة متوفرة على Sci-Hub بصيغة PDF وجاهزة للتحميل.'
-          : 'المقالة متوفرة مجاناً بصيغة PDF (وصول مفتوح).',
-      } satisfies ArticlePdfCheckResponse);
-      return;
     }
 
     res.json({
       available: false,
       isPaidRestricted: true,
+      requiresManualSciHubCheck: Boolean(doi),
       doi,
       pdfUrl: null,
       pdfCandidates: [],
       sciHubBoxUrl,
       source: 'none',
       fileSize: null,
+      sha256: null,
+      md5: null,
       message: 'هذه المقالة غير موجودة على موقع Sci-Hub بصيغة PDF — المقالة مدفوعة وغير مجانية ولا يمكن تحميلها.',
     } satisfies ArticlePdfCheckResponse);
   });
@@ -1693,6 +1981,7 @@ async function createServer() {
 
       const isInline = req.query.inline === '1';
       res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
       res.setHeader(
         'Content-Disposition',
         `${isInline ? 'inline' : 'attachment'}; filename="${safeFilename}"`

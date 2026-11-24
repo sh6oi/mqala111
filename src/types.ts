@@ -51,12 +51,15 @@ export interface SearchArticleResult {
   citedByCount: number | null;
   abstract: string | null;
   openAccessPdfUrl: string | null;
+  pdfCandidates?: string[];
   similarityScore: number;
 }
 
 export interface ArticleSearchResponse {
   success: boolean;
   query: string;
+  yearFrom?: number | null;
+  yearTo?: number | null;
   enginesSearched: string[];
   totalResults: number;
   articles: SearchArticleResult[];
@@ -66,12 +69,15 @@ export interface ArticleSearchResponse {
 export interface ArticlePdfCheckResponse {
   available: boolean;
   isPaidRestricted: boolean;
+  requiresManualSciHubCheck?: boolean;
   doi: string | null;
   pdfUrl: string | null;
   pdfCandidates: string[];
   sciHubBoxUrl: string | null;
-  source: 'sci-hub' | 'open-access' | 'none';
+  source: 'article-direct' | 'open-access' | 'sci-hub' | 'none';
   fileSize: string | null;
+  sha256?: string | null;
+  md5?: string | null;
   message: string;
 }
 
